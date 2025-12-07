@@ -1,0 +1,18 @@
+E3mel el cases beta3et el one line body 
+ex:
+if (cond)
+{
+    one statement;
+}
+
+5aleeha kda kaman accepted
+if (cond) one statement;
+
+hane3melha 3ala dool:
+if for while repeat until
+
+done : ✅
+
+
+
+4 ^ 3 ^ 2 = 4 ^ 9 = 

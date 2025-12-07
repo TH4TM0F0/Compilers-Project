@@ -1,0 +1,24 @@
+_asdbas009 = 5..;
+int x = 5
+_asdbas009 = .5;
+_asdbas009 = true;
+_asdbas009 = 0;
+0000aasasd
+repeat
+{
+    string mystring = "x\"y&&\\z"||;
+    string mystring = "x\"y\\z;
+    const string myName : "Mazen";
+    const float pi : 3.14;
+    char mychar = 'a';
+    char mychar = 'a;
+    @
+    $
+    ~
+    print("Mazen,"")
+    //asdasd
+} until(x && y);
+
+/*
+this is a multilined comment
+*/
