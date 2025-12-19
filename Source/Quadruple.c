@@ -28,7 +28,7 @@ const char* operatorToString (Op Operator) {
         case SUB: return "-";
         case MUL: return "*";
         case DIV: return "/";
-        case MOD: return "%";
+        case MOD: return "%%";
         case EXP: return "**";
         case UMIN: return "UMINUS"; // <---
         case INC: return "++";
