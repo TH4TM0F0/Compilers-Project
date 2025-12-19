@@ -1,7 +1,7 @@
 /* Definitions */
 %{
     #include <stdio.h>
-    //#include "parser.tab.h"
+    #include "parser.tab.h"
     extern FILE *yyin; /*Exclusive input for lexer*/
 %}
 
@@ -92,8 +92,8 @@ identifier {varNameStart}{acceptableNamingChar}*
 {identifier}                                { printf("Rule %-20s matched: '%s'\n", "IDENTIFIER", yytext); /*return IDENTIFIER;*/ }
 
 [ \t\n]+                                    { /* ignore whitespace tabs newlines */ }
-"//".*                                      { /* ignore single-line comments */ }
-"/*"([^*]|\*+[^*/])*\*+"/"                  { /* ignore multi-line comments */ }
+"//".*                                      { printf("Single line comment\n");/* ignore single-line comments */ }
+"/*"([^*]|\*+[^*/])*\*+"/"                  { printf("Multi line comment\n");/* ignore multi-line comments */ }
 
 {charDataMissingQuote}                      { /*Did not find closing quote for charData*/ printf("Missing quotes: %s\n" , yytext); }
 {stringDataMissingQuote}                    { /*Did not find closing quote for stringData*/ printf("Missing quotes: %s\n" , yytext); }
@@ -108,18 +108,18 @@ int yywrap(void)
     return 1;
 }
 
-int main(int argc, char *argv[]) 
-{
-    if(argc > 1) 
-    {
-        yyin = fopen(argv[1], "r");
-        if(!yyin) 
-        {
-            perror("Cannot open file");
-            return 1;
-        }
-    }
-    yylex();
-    if (yyin) fclose(yyin);
-    return 0;
-}
+// int main(int argc, char *argv[]) 
+// {
+//     if(argc > 1) 
+//     {
+//         yyin = fopen(argv[1], "r");
+//         if(!yyin) 
+//         {
+//             perror("Cannot open file");
+//             return 1;
+//         }
+//     }
+//     yylex();
+//     if (yyin) fclose(yyin);
+//     return 0;
+// }
