@@ -2,10 +2,20 @@
 %{
     #include <stdio.h>
     #include <stdlib.h>
+    #include <string.h>
+    #include <stdbool.h>
     #include <math.h>
-    int yylex(void);
-    void yyerror(char *);
-    extern FILE *yyin;
+    #include "Quadruple.h"
+    #include "ErrorHandler.h"
+    #include "Parameter.h"
+    #include "Assembler.h"
+
+    extern FILE* yyin;
+    extern int yylex();
+    extern int yyparse();
+    extern int previousValidLine;
+
+    void yyerror(const char* String);
 %}
 
 // Data Types:
@@ -23,7 +33,7 @@
 %token IF ELSE WHILE REPEAT UNTIL FOR SWITCH CASE CONST RETURN CONTINUE BREAK DEFAULT FUNCTION
 %token OR AND NOT GT GE ST SE EQ NEQ
 %token PLUS MINUS MULTIPLY DIVIDE MODULO POWER 
-%token INCREREMENT DECREMENT
+%token INCREMENT DECREMENT
 %token EQUAL SEMI_COLON COMMA COLON
 %token LEFT_ROUND_BRACKET RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET 
 %token <intData> INTVALUE BOOLVALUE 
@@ -107,9 +117,9 @@ DECLARATOR:
 
 ASSIGNMENT: 
     IDENTIFIER EQUAL LOGICAL_EXPRESSION
-    | IDENTIFIER INCREREMENT
+    | IDENTIFIER INCREMENT
     | IDENTIFIER DECREMENT
-    | INCREREMENT IDENTIFIER
+    | INCREMENT IDENTIFIER
     | DECREMENT IDENTIFIER
     ;
 
@@ -181,10 +191,6 @@ PARAM_LIST_NONEMPTY :
     | PARAM_LIST_NONEMPTY COMMA DATATYPE IDENTIFIER   
     ;
 
-FUNCTION_CALL: 
-    IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
-    ;
-
 ARGUMENT_LIST: 
     /* empty */
     | ARGUMENTS
@@ -249,14 +255,18 @@ PRIMARY_EXPRESSION:
     | CHARVALUE
     | BOOLVALUE
     | STRINGVALUE
-    | IDENTIFIER
-    | FUNCTION_CALL
+    | IDENTIFIER PRIMARY_SUFFIX
     | LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET
+    ;
+
+PRIMARY_SUFFIX:
+    /* empty */
+    | LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
     ;
 
 %%
 
-void yyerror(char *s) { fprintf(stderr, "%s\n", s); }
+void yyerror(const char* String) { }
 
 int main(int argc , char** argv) {
     if(argc > 1) {

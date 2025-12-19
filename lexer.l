@@ -1,9 +1,18 @@
 /* Definitions */
 %{
     #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <stdbool.h>
+    #include <math.h>
     #include "parser.tab.h"
-    // extern FILE *yyin; // Exclusive input for lexer
+
+    // extern int yylineno;
+    int lastValidLine = 1;
+    int previousValidLine = 1;
 %}
+
+%option yylineno noyywrap
 
 /* Regex constructs for easier formations */
 /***************************************/
@@ -66,10 +75,10 @@ identifier {varNameStart}{acceptableNamingChar}*
 
 "+"                                         { printf("Rule %-20s matched: '%s'\n", "PLUS", yytext); return PLUS; }
 "-"                                         { printf("Rule %-20s matched: '%s'\n", "MINUS", yytext); return MINUS; }
+"**"                                        { printf("Rule %-20s matched: '%s'\n", "POWER", yytext); return POWER; }
 "*"                                         { printf("Rule %-20s matched: '%s'\n", "MULTIPLY", yytext); return MULTIPLY; }
 "/"                                         { printf("Rule %-20s matched: '%s'\n", "DIVIDE", yytext); return DIVIDE; }
 "%"                                         { printf("Rule %-20s matched: '%s'\n", "MODULO", yytext); return MODULO; }
-"**"                                        { printf("Rule %-20s matched: '%s'\n", "POWER", yytext); return POWER; }
 "++"                                        { printf("Rule %-20s matched: '%s'\n", "INCREMENT", yytext); return INCREMENT; }
 "--"                                        { printf("Rule %-20s matched: '%s'\n", "DECREMENT", yytext); return DECREMENT; }
 "="                                         { printf("Rule %-20s matched: '%s'\n", "EQUAL", yytext); return EQUAL; }
@@ -82,26 +91,25 @@ identifier {varNameStart}{acceptableNamingChar}*
 "{"                                         { printf("Rule %-20s matched: '%s'\n", "LEFT_CURLY_BRACKET", yytext); return LEFT_CURLY_BRACKET; }
 "}"                                         { printf("Rule %-20s matched: '%s'\n", "RIGHT_CURLY_BRACKET", yytext); return RIGHT_CURLY_BRACKET; }
 
-"int"|"float"|"char"|"string"|"bool"|"void" { printf("Rule %-20s matched: '%s'\n", "DATATYPE", yytext);  return DATATYPE;  }
+"int"|"float"|"char"|"string"|"bool"|"void" { printf("Rule %-20s matched: '%s'\n", "DATATYPE", yytext); yylval.stringData = strdup(yytext); return DATATYPE;  }
 
-"true"|"false"                              { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); return BOOLVALUE; }
-{intData}                                   { printf("Rule %-20s matched: '%s'\n", "INTVALUE", yytext); return INTVALUE; }
-{floatData}                                 { printf("Rule %-20s matched: '%s'\n", "FLOATVALUE", yytext); return FLOATVALUE; }
-{charData}                                  { printf("Rule %-20s matched: '%s'\n", "CHARVALUE", yytext); return CHARVALUE; }
-{stringData}                                { printf("Rule %-20s matched: '%s'\n", "STRINGVALUE", yytext); return STRINGVALUE; }
+"true"                                      { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.boolData = 1; return BOOLVALUE; }
+"false"                                     { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.boolData = 0; return BOOLVALUE; }
+{intData}                                   { printf("Rule %-20s matched: '%s'\n", "INTVALUE", yytext); yylval.intData = atoi(yytext); return INTVALUE; }
+{floatData}                                 { printf("Rule %-20s matched: '%s'\n", "FLOATVALUE", yytext); yylval.floatData = (float)atof(yytext); return FLOATVALUE; }
+{charData}                                  { printf("Rule %-20s matched: '%s'\n", "CHARVALUE", yytext); yylval.charData = yytext[1]; return CHARVALUE; }
+{stringData}                                { printf("Rule %-20s matched: '%s'\n", "STRINGVALUE", yytext); yylval.stringData = strdup(yytext); return STRINGVALUE; }
 
-{identifier}                                { printf("Rule %-20s matched: '%s'\n", "IDENTIFIER", yytext); return IDENTIFIER; }
+{identifier}                                { printf("Rule %-20s matched: '%s'\n", "IDENTIFIER", yytext); yylval.stringData = strdup(yytext); return IDENTIFIER; }
 
-[ \t\n]+                                    { }
+\n                                          { }
+[ \t]+                                      { }
 "//".*                                      { printf("Single line comment\n"); }
-""([^*]|\*+[^])*\*+"/"                      { printf("Multi line comment\n"); }
+"/*"([^*]|\*+[^*/])*\*+"/"                  { printf("Multi line comment\n"); }
 
 {charDataMissingQuote}                      { printf("Missing quotes: %s\n" , yytext); }
 {stringDataMissingQuote}                    { printf("Missing quotes: %s\n" , yytext); }
 
-.                                           { printf("Rule %-20s matched: '%s'\n", "UNKNOWN", yytext); return UNKOWN; }
+.                                           { printf("Rule %-20s matched: '%s'\n", "UNKNOWN", yytext); return UNKNOWN; }
 
 %%
-
-// Subroutines:
-int yywrap(void) { return 1; }
