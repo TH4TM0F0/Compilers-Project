@@ -1,0 +1,122 @@
+Variables and Constants declaration:
+    int x = 5;
+    const bool flag : true;
+    string if_string = "sdjf";
+    const float pi : 3.14;
+
+Mathematical and logical expressions:
+    Mathematical:
+        - (2 + 3 ^ 2)
+        2 * 3 / 1 - 4
+
+    Logical:
+        (2 > 3) || (true) && false
+        0 && true || true
+
+Assignment statements:
+    x = 9;
+    if_string = "normal string.\n";
+
+If-then-else statement:
+    normal:
+        if(Logical)
+        {
+            // do something
+        }
+        else
+        {
+            // do something else
+        }
+
+    nested ifs:
+        if(Logical)
+        {
+            // do something
+            if(Logical)
+            {
+                // do something
+            }
+            else
+            {
+                // do something else
+            }
+        }
+        else
+        {
+            // do something else
+        }
+
+    if with no else:
+        if (Logical)
+        {
+            // do something
+        }
+
+while loops:
+    normal:
+        while(Logical)
+        {
+            // do something
+        }
+
+    nested: 
+        while(Logical)
+        {
+            // do something
+            while(Logical)
+            {
+                // do something
+            }
+        }
+
+repeat-until loops:
+    repeat
+    {
+        // some statements
+    } until(Logical);
+
+for loops:
+    for(loop iterator; Logical; iterator step)
+    {
+        // some statements
+    }
+    loop iterator; Logical; iterator step must exist 
+
+switch statement:
+    switch(var of type int or char)
+    {
+        case 1:
+            // do something
+        case 2: 
+            // do sommething else
+        default:
+            // do something 
+    }
+
+Block structure:
+    normal:
+        {
+            // some statements
+        }
+    nested:
+        {
+            {
+
+            }
+        }
+
+Functions:
+    Function definition+declaration:
+        function returnType funcName(paramList)
+        {
+            // some statements
+        }
+    Function call:
+        funcName(argList);
+        int x = add(3 , 5);
+
+    example:
+        function int add(int x , int y)
+        {
+            return x + y;
+        }
