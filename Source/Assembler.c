@@ -24,87 +24,87 @@ void quadruplesToAssembly (const char *filename) {
 
         switch (currentQuadruple.Operator) {
             // Arithmetic Operator(s):
-            case ADD: 
+            case OP_ADD: 
                 fprintf(file, "ADD %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case SUB:
+            case OP_SUB:
                 fprintf(file, "SUB %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case MUL:
+            case OP_MUL:
                 fprintf(file, "MUL %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case DIV:
+            case OP_DIV:
                 fprintf(file, "DIV %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case MOD:
+            case OP_MOD:
                 fprintf(file, "MOD %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case EXP:
+            case OP_EXP:
                 fprintf(file, "EXP %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case UMIN:
+            case OP_UMIN:
                 fprintf(file, "NEG %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
-            case INC:
+            case OP_INC:
                 fprintf(file, "INC %s\n", removeNone(Result));
                 break;
 
-            case DEC:
+            case OP_DEC:
                 fprintf(file, "DEC %s\n", removeNone(Result));
                 break;
 
             // Assignment Operator(s):
-            case ASSN:
+            case OP_ASSN:
                 fprintf(file, "MOV %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
             // Relational Operator(s):
-            case LT:
+            case OP_LT:
                 fprintf(file, "LT %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case GT:
+            case OP_GT:
                 fprintf(file, "GT %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case LTE:
+            case OP_LTE:
                 fprintf(file, "LTE %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case GTE:
+            case OP_GTE:
                 fprintf(file, "GTE %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case EQ:
+            case OP_EQ:
                 fprintf(file, "EQ %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case NEQ:
+            case OP_NEQ:
                 fprintf(file, "NEQ %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
             // Logical Operator(s):
-            case AND:
+            case OP_AND:
                 fprintf(file, "AND %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case OR:
+            case OP_OR:
                 fprintf(file, "OR %s, %s, %s\n", removeNone(Result), removeNone(Argument1), removeNone(Argument2));
                 break;
 
-            case NOT:
+            case OP_NOT:
                 fprintf(file, "NOT %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
             // Control Flow Operator(s):
-            case GOTO:
+            case OP_GOTO:
                 if ((Result) && strcmp((Result), "NONE") != 0 && strlen((Result)) > 0) {
                     char Jump[128];
                     snprintf(Jump, sizeof(Jump), "JMP %s", Result);
@@ -117,21 +117,21 @@ void quadruplesToAssembly (const char *filename) {
                     fprintf(file, ";\n");
                 break;
 
-            case IFGOTO:
+            case OP_IFGOTO:
                 if ((Result) && strcmp((Result), "NONE") != 0 && strlen((Result)) > 0)
                     fprintf(file,"JNZ %s, %s\n", removeNone(Argument1), Result);
                 else 
                     fprintf(file, ";\n");
                 break;
 
-            case IFFALSE:
+            case OP_IFFALSE:
                 if ((Result) && strcmp((Result), "NONE") != 0 && strlen((Result)) > 0)
                     fprintf(file, "JZ %s, %s\n", removeNone(Argument1), Result);
                 else
                     fprintf(file, ";\n");
                 break;
 
-            case LABEL:
+            case OP_LABEL:
                 if ((Result) && strcmp((Result), "NONE") != 0 && strlen((Result)) > 0)
                     fprintf(file, "\n%s:\n", Result);
                 else
@@ -139,39 +139,39 @@ void quadruplesToAssembly (const char *filename) {
                 break;
 
             // Fuction Calls & Stack Handling Operator(s):
-            case CALL:
+            case OP_CALL:
                 fprintf(file, "CALL %s\n", removeNone(Argument1));
                 if ((Result) && strcmp((Result), "NONE") != 0 && strlen((Result)) > 0)
                     fprintf(file, "MOV %s, EAX\n", Result);
                 break;
 
-            case PARM:
+            case OP_PARM:
                 if ((Argument1) && strcmp((Argument1), "NONE") != 0 && strlen((Argument1)) > 0)
                     fprintf(file, "PUSH %s\n", Argument1);
                 else
                     fprintf(file, ";\n");
                 break;
 
-            case RETURN:
+            case OP_RETURN:
                 if ((Argument1) && strcmp((Argument1), "NONE") != 0 && strlen((Argument1)) > 0)
                     fprintf(file, "MOV EAX, %s\n", Argument1);
                 fprintf(file, "RET\n");
                 break;
 
             // Type Conversion Operator(s):
-            case ITOF:
+            case OP_ITOF:
                 fprintf(file, "ITOF %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
-            case FTOI:
+            case OP_FTOI:
                 fprintf(file, "FTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
-            case CTOI:
+            case OP_CTOI:
                 fprintf(file, "CTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
-            case ITOB:
+            case OP_ITOB:
                 fprintf(file, "ITOB %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 

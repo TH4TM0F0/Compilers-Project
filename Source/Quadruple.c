@@ -21,51 +21,51 @@ char* createLabel () {
     return label;
 }
 
-const char* operatorToString (Op Operator) {
+const char* operatorToString (Quad_Op Operator) {
     switch (Operator) {
         // Arithmetic Operator(s):
-        case ADD: return "+";
-        case SUB: return "-";
-        case MUL: return "*";
-        case DIV: return "/";
-        case MOD: return "%%";
-        case EXP: return "**";
-        case UMIN: return "UMINUS"; // <---
-        case INC: return "++";
-        case DEC: return "--";
+        case OP_ADD: return "+";
+        case OP_SUB: return "-";
+        case OP_MUL: return "*";
+        case OP_DIV: return "/";
+        case OP_MOD: return "%%";
+        case OP_EXP: return "**";
+        case OP_UMIN: return "UMINUS"; // <---
+        case OP_INC: return "++";
+        case OP_DEC: return "--";
         // Assignment Operator(s):
-        case ASSN: return "=";
+        case OP_ASSN: return "=";
         // Relational Operator(s):
-        case LT: return "<";
-        case GT: return ">";
-        case LTE: return "<=";
-        case GTE: return ">=";
-        case EQ: return "==";
-        case NEQ: return "!=";
+        case OP_LT: return "<";
+        case OP_GT: return ">";
+        case OP_LTE: return "<=";
+        case OP_GTE: return ">=";
+        case OP_EQ: return "==";
+        case OP_NEQ: return "!=";
         // Logical Operator(s):
-        case AND: return "&&";
-        case OR: return "||";
-        case NOT: return "!";
+        case OP_AND: return "&&";
+        case OP_OR: return "||";
+        case OP_NOT: return "!";
         // Control Flow Operator(s):
-        case GOTO: return "GO_TO";
-        case IFGOTO: return "IF_GO_TO";
-        case IFFALSE: return "IF_FALSE";
-        case LABEL: return "LABEL"; // <---
+        case OP_GOTO: return "GO_TO";
+        case OP_IFGOTO: return "IF_GO_TO";
+        case OP_IFFALSE: return "IF_FALSE";
+        case OP_LABEL: return "LABEL"; // <---
         // Fuction Calls & Stack Handling Operator(s):
-        case CALL: return "CALL";
-        case PARM: return "PARM";
-        case RETURN: return "RETURN";
+        case OP_CALL: return "CALL";
+        case OP_PARM: return "PARM";
+        case OP_RETURN: return "RETURN";
         // Type Conversion Operator(s):
-        case ITOF: return "INT_TO_FLOAT";
-        case FTOI: return "FLOAT_TO_INT";
-        case CTOI: return "CHAR_TO_INT";
-        case ITOB: return "INT_TO_BOOL";
+        case OP_ITOF: return "INT_TO_FLOAT";
+        case OP_FTOI: return "FLOAT_TO_INT";
+        case OP_CTOI: return "CHAR_TO_INT";
+        case OP_ITOB: return "INT_TO_BOOL";
         // Anomaly Operator:
         default: return "UNKNOWN";
     }
 }
 
-void addQuadruple (Op Operator, const char* Argument1, const char* Argument2, const char* Result) {
+void addQuadruple (Quad_Op Operator, const char* Argument1, const char* Argument2, const char* Result) {
     if (quadruplesCount >= MAX_QUADS) {
         fprintf(stderr, "Error: Exceeded Maximum Quadruples!\n");
         exit(1);

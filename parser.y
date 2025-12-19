@@ -43,15 +43,15 @@
 %token UNKNOWN
 
 //Datatypes For Grammar Rules:
-%type <VOID_DATA>
-%type <VOID_DATA>
+%type <VOID_DATA> STATEMENTS
+/* %type <VOID_DATA>
 %type <VOID_DATA>
 %type <VOID_DATA>
 %type <VOID_DATA>
 %type <VOID_DATA>
 %type <VOID_DATA>
 %type <intData>
-%type <intData>
+%type <intData> */
 
 // Operator Precedence:
 %nonassoc LOWER_THAN_ELSE
@@ -74,45 +74,130 @@ PROGRAM:
     ;       
 
 STATEMENTS: 
-    /* empty */
+    /* empty */ { $$ = NULL; }
     | STATEMENTS STATEMENT
     ;
 
 STATEMENT: 
     DECLARATION SEMI_COLON
+    | DECLARATION error {
+        reportError(SYNTAX_ERROR, "Expected ';'", previousValidLine);
+        yyerrok;
+    }
     | ASSIGNMENT SEMI_COLON
+    | ASSIGNMENT error {
+        reportError(SYNTAX_ERROR, "Expected ';'", previousValidLine);
+        yyerrok;
+    }
     | LOGICAL_EXPRESSION SEMI_COLON
-    | RETURN_STATEMENT SEMI_COLON 
+    | LOGICAL_EXPRESSION error {
+        reportError(SYNTAX_ERROR, "Expected ';'", previousValidLine);
+        yyerrok;
+    }
+    | RETURN_STATEMENT SEMI_COLON
+    | RETURN_STATEMENT error {
+        reportError(SYNTAX_ERROR, "Expected ';'", previousValidLine);
+        yyerrok;
+    }
+    | BREAK SEMI_COLON
+    | BREAK error {
+        reportError(SYNTAX_ERROR, "Expected ';'", previousValidLine);
+        yyerrok;
+    }
+    | CONTINUE SEMI_COLON
+    | CONTINUE error {
+        reportError(SYNTAX_ERROR, "Expected ';'", previousValidLine);
+        yyerrok;
+    }
+    | SEMI_COLON
+    | error SEMI_COLON {
+        reportError(SYNTAX_ERROR, "Invalid statement", previousValidLine);
+        yyerrok;
+    }
+    | LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET
+    | LEFT_CURLY_BRACKET STATEMENTS error {
+        reportError(SYNTAX_ERROR, "Expected '}'", previousValidLine);
+        yyerrok;
+    }
+    | error STATEMENTS RIGHT_CURLY_BRACKET {
+        reportError(SYNTAX_ERROR, "Expected '{'", previousValidLine);
+        yyerrok;
+    }
     | IF_STATEMENT
+    | ELSE {
+        reportError(SYNTAX_ERROR, "Unxpected 'else' Without Matching 'if'", previousValidLine);
+        yyerrok;
+    }
     | WHILE_STATEMENT
     | FOR_STATEMENT
     | REPEAT_STATEMENT
     | SWITCH_STATEMENT
     | FUNCTION_DEFINITION_IMPLEMENTATION
-    | BREAK SEMI_COLON
-    | CONTINUE SEMI_COLON
-    | LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET
+    | RIGHT_CURLY_BRACKET {
+        reportError(SYNTAX_ERROR, "Unxpected '}' Without Matching '{'", previousValidLine);
+        yyerrok;
+    }
+    | IDENTIFIER error {
+        reportError(SYNTAX_ERROR, "Expected '(", previousValidLine);
+        yyerrok;
+    }
     ;
 
 DECLARATION: 
     DATATYPE IDENTIFIERS
     | DATATYPE DECLARATORS
     | CONST DATATYPE DECLARATORS
+    | DATATYPE error {
+        reportError(SYNTAX_ERROR, "Expected Identifier After Datatype", previousValidLine);
+        yyerrok;
+    }
+    | CONST error {
+        reportError(SYNTAX_ERROR, "Expected Datatype After 'const'", previousValidLine);
+        yyerrok;
+    }
+    | CONST DATATYPE error {
+        reportError(SYNTAX_ERROR, "Expected Identifier After 'const datatype'", previousValidLine);
+        yyerrok;
+    }
+    | CONST DATATYPE SEMI_COLON {
+        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After 'const datatype'", previousValidLine);
+        yyerrok;
+    }
     ;
 
 IDENTIFIERS: 
     IDENTIFIER
     | IDENTIFIERS COMMA IDENTIFIER
+    | IDENTIFIERS COMMA error {
+        reportError(SYNTAX_ERROR, "Expected Identifier After ','", previousValidLine);
+        yyerrok;
+    }
+    | COMMA error {
+        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Identifier", previousValidLine);
+        yyerrok;
+    }
     ;
 
 DECLARATORS: 
     DECLARATOR
     | DECLARATORS COMMA DECLARATOR
+    | DECLARATORS COMMA error {
+        reportError(SYNTAX_ERROR, "Expected Declarator After ','", previousValidLine);
+        yyerrok;
+    }
+    | COMMA error {
+        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Declarator", previousValidLine);
+        yyerrok;
+    }
     ;
 
 DECLARATOR: 
     IDENTIFIER
     | IDENTIFIER EQUAL LOGICAL_EXPRESSION
+    | IDENTIFIER EQUAL error {
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", previousValidLine);
+        yyerrok;
+    }
     ;
 
 ASSIGNMENT: 
@@ -275,11 +360,13 @@ int main(int argc , char** argv) {
             fprintf(stderr, "Could not open file: %s\n", argv[1]);
             exit(1);
         }
-    }
-    else {
+    } else {
         fprintf(stderr, "Test file argument is missing!\n");
         exit(1);
     }
-    if(yyparse() == 0)  return 0;
-    return 1;
+
+    int parseResult = yyparse();
+         
+    printErrors();                    
+    return (parseResult == 0 && getErrorCount() == 0) ? 0 : 1;
 }
