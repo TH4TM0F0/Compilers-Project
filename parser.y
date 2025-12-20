@@ -46,16 +46,6 @@
 
 //Datatypes For Grammar Rules:
 %type <VOID_DATA> STATEMENTS
-%type <VOID_DATA> EXPRESSION_STATEMENT   /* CHANGED: keep as VOID_DATA */
-%type <VOID_DATA> FUNCTION_CALL          /* CHANGED: keep as VOID_DATA */
-/* %type <VOID_DATA>
-%type <VOID_DATA>
-%type <VOID_DATA>
-%type <VOID_DATA>
-%type <VOID_DATA>
-%type <VOID_DATA>
-%type <intData>
-%type <intData> */
 
 // Operator Precedence:
 %nonassoc LOWER_THAN_ELSE
@@ -78,19 +68,17 @@ PROGRAM:
     ;       
 
 STATEMENTS: 
-    /* empty */ { $$ = NULL; }
+    /* EMPTY */ { $$ = NULL; }
     | STATEMENTS STATEMENT
     ;
 
 STATEMENT: 
     DECLARATION SEMI_COLON
     | ASSIGNMENT SEMI_COLON
-    /* CHANGED: LOGICAL_EXPRESSION SEMI_COLON -> EXPRESSION_STATEMENT SEMI_COLON */
-    | EXPRESSION_STATEMENT SEMI_COLON                 /* CHANGED */
+    | FUNCTION_CALL SEMI_COLON
     | RETURN_STATEMENT SEMI_COLON
     | BREAK SEMI_COLON
     | CONTINUE SEMI_COLON
-    | SEMI_COLON
     | LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET
     | IF_STATEMENT
     | WHILE_STATEMENT
@@ -101,85 +89,53 @@ STATEMENT:
 
     // Error Handling:
     | DECLARATION error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
     | ASSIGNMENT error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
-    /* CHANGED: LOGICAL_EXPRESSION error -> EXPRESSION_STATEMENT error */
-    | EXPRESSION_STATEMENT error {                     /* CHANGED */
-        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line);
+    | FUNCTION_CALL error {
+        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
     | RETURN_STATEMENT error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
     | BREAK error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
     | CONTINUE error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line);
-        yyerrok;
-    }
-    | error SEMI_COLON {
-        reportError(SYNTAX_ERROR, "Invalid statement", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
     | LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '}'", @3.first_line);
         yyerrok;
     }
-    | error STATEMENTS RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected '{'", @3.first_line);
-        yyerrok;
-    }
-    | ELSE {
-        reportError(SYNTAX_ERROR, "Unxpected 'else' Without Matching 'if'", @1.first_line);
-        yyerrok;
-    }
-    | RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Unxpected '}' Without Matching '{'", @1.first_line);
-        yyerrok;
-    }
-    | IDENTIFIER error {
-        reportError(SYNTAX_ERROR, "Expected '(", @1.first_line);
+    | EQUAL LOGICAL_EXPRESSION SEMI_COLON {
+        reportError(SYNTAX_ERROR, "Expected Identifier Before '='", @1.first_line);
         yyerrok;
     }
     ;
 
-/* CHANGED: make expression-statement ONLY a function call.
-   This avoids IDENTIFIER being a statement by itself, and removes the type-clash warnings. */
-EXPRESSION_STATEMENT:                                 /* CHANGED */
-      FUNCTION_CALL { $$ = NULL; }                    /* CHANGED */
-    ;                                                 /* CHANGED */
-
-FUNCTION_CALL:                                        /* CHANGED */
-      IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET { $$ = NULL; }  /* CHANGED */
-    ;                                                 /* CHANGED */
-
-DECLARATION: 
+DECLARATION:
     DATATYPE IDENTIFIERS
-    | DATATYPE DECLARATORS
-    | CONST DATATYPE DECLARATORS
+    | CONST DATATYPE IDENTIFIERS
 
     // Error Handling:
     | DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Datatype", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After Datatype", @2.first_line);
         yyerrok;
     }
     | CONST error {
-        reportError(SYNTAX_ERROR, "Expected Datatype After 'const'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Datatype After 'const'", @2.first_line);
         yyerrok;
     }
     | CONST DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After 'const datatype'", @2.first_line);
-        yyerrok;
-    }
-    | CONST DATATYPE SEMI_COLON {
         reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After 'const datatype'", @3.first_line);
         yyerrok;
     }
@@ -191,41 +147,21 @@ DECLARATION:
 
 IDENTIFIERS: 
     IDENTIFIER
-    | IDENTIFIERS COMMA IDENTIFIER
-
-    // Error Handling:
-    | IDENTIFIERS COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After ','", @2.first_line);
-        yyerrok;
-    }
-    | COMMA error {
-        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Identifier/Declarator", @1.first_line);
-        yyerrok;
-    }
-    ;
-
-DECLARATORS: 
-    DECLARATOR
-    | DECLARATORS COMMA DECLARATOR
-
-    // Error Handling:
-    | DECLARATORS COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After ','", @2.first_line);
-        yyerrok;
-    }
-    | COMMA error {
-        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Identifier/Declarator", @1.first_line);
-        yyerrok;
-    }
-    ;
-
-DECLARATOR: 
-    IDENTIFIER
     | IDENTIFIER EQUAL LOGICAL_EXPRESSION
+    | IDENTIFIERS COMMA IDENTIFIER
+    | IDENTIFIERS COMMA IDENTIFIER EQUAL LOGICAL_EXPRESSION
 
     // Error Handling:
     | IDENTIFIER EQUAL error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '='", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @3.first_line);
+        yyerrok;
+    }
+    | IDENTIFIERS COMMA error {
+        reportError(SYNTAX_ERROR, "Expected Identifier After ','", @3.first_line);
+        yyerrok;
+    }
+    | COMMA error {
+        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Identifier/Declarator", @2.first_line);
         yyerrok;
     }
     ;
@@ -238,27 +174,31 @@ ASSIGNMENT:
     | DECREMENT IDENTIFIER
 
     // Error Handling:
-    | EQUAL {
-        reportError(SYNTAX_ERROR, "Expected Identifier Before '='", @1.first_line);
-        yyerrok;
-    }
-    | error EQUAL LOGICAL_EXPRESSION {
-        reportError(SYNTAX_ERROR, "Expected Identifier Before '='", @2.first_line);
-        yyerrok;
-    }
     | IDENTIFIER EQUAL error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '='", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @3.first_line);
         yyerrok;
     }
     | INCREMENT error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After '++'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After '++'", @2.first_line);
         yyerrok;
     }
     | DECREMENT error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After '--'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After '--'", @2.first_line);
         yyerrok;
     }
     ;
+
+FUNCTION_CALL:                                        
+      IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
+      | IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST error {
+        reportError(SYNTAX_ERROR, "Expected ')' In Function Call", @4.first_line);
+        yyerrok;
+      }
+      | IDENTIFIER error ARGUMENT_LIST RIGHT_ROUND_BRACKET {
+        reportError(SYNTAX_ERROR, "Expected '(' In Function Call", @2.first_line);
+        yyerrok;
+      }
+    ;                                                 
 
 IF_STATEMENT: 
     IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET %prec LOWER_THAN_ELSE
@@ -266,11 +206,11 @@ IF_STATEMENT:
 
     // Error Handling:
     | IF LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'if'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'if'", @3.first_line);
         yyerrok;
     }
     | IF error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'if'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After 'if'", @2.first_line);
         yyerrok;
     }
     | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
@@ -278,7 +218,7 @@ IF_STATEMENT:
         yyerrok;
     }
     | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'if (condition)'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '{' After 'if (condition)'", @5.first_line);
         yyerrok;
     }
     | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS error {
@@ -300,11 +240,11 @@ WHILE_STATEMENT:
 
     // Error Handling:
     | WHILE LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'while'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'while'", @3.first_line);
         yyerrok;
     }
     | WHILE error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'while'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After 'while'", @2.first_line);
         yyerrok;
     }
     | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
@@ -312,7 +252,7 @@ WHILE_STATEMENT:
         yyerrok;
     }
     | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'while (condition)'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '{' After 'while (condition)'", @5.first_line);
         yyerrok;
     }
     | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS error {
@@ -326,7 +266,7 @@ REPEAT_STATEMENT:
 
     // Error Handling:
     | REPEAT error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'repeat'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '{' After 'repeat'", @2.first_line);
         yyerrok;
     }
     | REPEAT LEFT_CURLY_BRACKET STATEMENTS error {
@@ -338,11 +278,11 @@ REPEAT_STATEMENT:
         yyerrok;
     }
     | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'until'", @5.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After 'until'", @6.first_line);
         yyerrok;
     }
     | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET SEMI_COLON {
-        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'until'", @6.first_line);
+        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'until'", @7.first_line);
         yyerrok;
     }
     | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
@@ -360,11 +300,11 @@ FOR_STATEMENT:
 
     // Error Handling:
     | FOR error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'for'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After 'for'", @2.first_line);
         yyerrok;
     }
     | FOR LEFT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Invalid 'for' Header", @1.first_line);
+        reportError(SYNTAX_ERROR, "Invalid 'for' Header", @3.first_line);
         yyerrok;
     }
     | FOR LEFT_ROUND_BRACKET ITERATOR error {
@@ -395,29 +335,34 @@ ITERATOR:
 
     // Error Handling:
     | IDENTIFIER EQUAL error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '=' In For-Initializer", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '=' In For-Initializer", @3.first_line);
         yyerrok;
     }
     | DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Datatype In For-Initializer", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Datatype In For-Initializer", @2.first_line);
         yyerrok;
     }
     | DATATYPE IDENTIFIER error {
-        reportError(SYNTAX_ERROR, "Expected '=' After Identifier In For-Initializer", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected '=' After Identifier In For-Initializer", @3.first_line);
         yyerrok;
     }
     ;
 
-SWITCH_STATEMENT: 
-    SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES DEFAULT_CASE RIGHT_CURLY_BRACKET
+SWITCH_STATEMENT:                                                               
+    SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES RIGHT_CURLY_BRACKET
+    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES DEFAULT_CASE RIGHT_CURLY_BRACKET
 
     // Error Handling:
     | SWITCH error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'switch'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After 'switch'", @2.first_line);
+        yyerrok;
+    }
+    | SWITCH LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES RIGHT_CURLY_BRACKET {
+        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )' After 'switch'", @3.first_line);
         yyerrok;
     }
     | SWITCH LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES DEFAULT_CASE RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )' After 'switch'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )' After 'switch'", @3.first_line);
         yyerrok;
     }
     | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
@@ -428,6 +373,10 @@ SWITCH_STATEMENT:
         reportError(SYNTAX_ERROR, "Expected '{' To Start Switch Body", @5.first_line);
         yyerrok;
     }
+    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES error {
+        reportError(SYNTAX_ERROR, "Expected '}' To Close Switch Body", @7.first_line);
+        yyerrok;
+    }
     | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES DEFAULT_CASE error {
         reportError(SYNTAX_ERROR, "Expected '}' To Close Switch Body", @8.first_line);
         yyerrok;
@@ -435,7 +384,7 @@ SWITCH_STATEMENT:
     ;
 
 CASES: 
-    /* empty */
+    /* EMPTY */ 
     | CASES SINGLE_CASE
     ;
 
@@ -444,7 +393,7 @@ SINGLE_CASE:
 
     // Error Handling:
     | CASE error {
-        reportError(SYNTAX_ERROR, "Expected Case Value After 'case'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Case Value After 'case'", @2.first_line);
         yyerrok;
     }
     | CASE PRIMARY_CASE error {
@@ -453,13 +402,12 @@ SINGLE_CASE:
     }
     ;
 
-DEFAULT_CASE: 
-    /* empty */
-    | DEFAULT COLON STATEMENTS
+DEFAULT_CASE:                                                                  
+    DEFAULT COLON STATEMENTS
 
     // Error Handling:
     | DEFAULT error {
-        reportError(SYNTAX_ERROR, "Expected ':' After 'default'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected ':' After 'default'", @2.first_line);
         yyerrok;
     }
     ;
@@ -476,12 +424,6 @@ PRIMARY_CASE:
 RETURN_STATEMENT: 
     RETURN
     | RETURN LOGICAL_EXPRESSION
-
-    // Error Handling:
-    | RETURN error {
-        reportError(SYNTAX_ERROR, "Expected Expression After 'return'", @1.first_line);
-        yyerrok;
-    }
     ;
 
 FUNCTION_DEFINITION_IMPLEMENTATION :
@@ -489,19 +431,15 @@ FUNCTION_DEFINITION_IMPLEMENTATION :
 
     // Error Handling:
     | FUNCTION error {
-        reportError(SYNTAX_ERROR, "Expected Datatype After 'function'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Datatype After 'function'", @2.first_line);
         yyerrok;
     }
     | FUNCTION DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Function Datatype", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Function Datatype", @3.first_line);
         yyerrok;
     }
     | FUNCTION DATATYPE IDENTIFIER error {
-        reportError(SYNTAX_ERROR, "Expected '(' After Function Name", @3.first_line);
-        yyerrok;
-    }
-    | FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Invalid Parameter List", @4.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After Function Name", @4.first_line);
         yyerrok;
     }
     | FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST error {
@@ -518,8 +456,8 @@ FUNCTION_DEFINITION_IMPLEMENTATION :
     }
     ;
 
-PARAMETER_LIST:
-    /* empty */                   
+PARAMETER_LIST: 
+    /* EMPTY */                   
     | PARAM_LIST_NONEMPTY          
     ;
 
@@ -529,21 +467,21 @@ PARAM_LIST_NONEMPTY :
 
     // Error Handling:
     | DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @2.first_line);
         yyerrok;
     }
     | PARAM_LIST_NONEMPTY COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Datatype After ',' In Parameter List", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Datatype After ',' In Parameter List", @3.first_line);
         yyerrok;
     }
     | PARAM_LIST_NONEMPTY COMMA DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @4.first_line);
         yyerrok;
     }  
     ;
 
 ARGUMENT_LIST: 
-    /* empty */
+    /* EMPTY */
     | ARGUMENTS
     ;
 
@@ -553,11 +491,11 @@ ARGUMENTS:
 
     // Error Handling:
     | ARGUMENTS COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Expression After ',' In Arguments", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After ',' In Arguments", @3.first_line);
         yyerrok;
     }
     | COMMA error {
-        reportError(SYNTAX_ERROR, "Unexpected ',' Before First Argument", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected ',' Before First Argument", @2.first_line);
         yyerrok;
     }
     ;
@@ -568,11 +506,11 @@ LOGICAL_EXPRESSION:
 
     // Error Handling:
     | LOGICAL_EXPRESSION OR error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '||'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '||'", @3.first_line);
         yyerrok;
     }
     | OR error {
-        reportError(SYNTAX_ERROR, "Unexpected '||' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '||' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -583,11 +521,11 @@ LOGICAL_TERM:
 
     // Error Handling:
     | LOGICAL_TERM AND error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '&&'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '&&'", @3.first_line);
         yyerrok;
     }
     | AND error {
-        reportError(SYNTAX_ERROR, "Unexpected '&&' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '&&' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -599,19 +537,19 @@ EQUALITY_EXPRESSION:
 
     // Error Handling:
     | EQUALITY_EXPRESSION EQ error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '=='", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '=='", @3.first_line);
         yyerrok;
     }
     | EQUALITY_EXPRESSION NEQ error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '!='", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '!='", @3.first_line);
         yyerrok;
     }
     | EQ error {
-        reportError(SYNTAX_ERROR, "Unexpected '==' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '==' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     | NEQ error {
-        reportError(SYNTAX_ERROR, "Unexpected '!=' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '!=' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -625,35 +563,35 @@ RELATIONAL_EXPRESSION:
 
     // Error Handling:
     | RELATIONAL_EXPRESSION ST error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '<'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '<'", @3.first_line);
         yyerrok;
     }
     | RELATIONAL_EXPRESSION GT error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '>'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '>'", @3.first_line);
         yyerrok;
     }
     | RELATIONAL_EXPRESSION SE error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '<='", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '<='", @3.first_line);
         yyerrok;
     }
     | RELATIONAL_EXPRESSION GE error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '>='", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '>='", @3.first_line);
         yyerrok;
     }
     | ST error {
-        reportError(SYNTAX_ERROR, "Unexpected '<' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '<' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     | GT error {
-        reportError(SYNTAX_ERROR, "Unexpected '>' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '>' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     | SE error {
-        reportError(SYNTAX_ERROR, "Unexpected '<=' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '<=' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     | GE error {
-        reportError(SYNTAX_ERROR, "Unexpected '>=' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '>=' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -665,15 +603,15 @@ ADDITIVE_EXPRESSION:
 
     // Error Handling:
     | ADDITIVE_EXPRESSION PLUS error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '+'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '+'", @3.first_line);
         yyerrok;
     }
     | ADDITIVE_EXPRESSION MINUS error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '-'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '-'", @3.first_line);
         yyerrok;
     }
     | PLUS error {
-        reportError(SYNTAX_ERROR, "Unexpected '+' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '+' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -686,27 +624,27 @@ MULTIPLICATIVE_EXPRESSION:
 
     // Error Handling:
     | MULTIPLICATIVE_EXPRESSION MULTIPLY error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '*'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '*'", @3.first_line);
         yyerrok;
     }
     | MULTIPLICATIVE_EXPRESSION DIVIDE error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '/'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '/'", @3.first_line);
         yyerrok;
     }
     | MULTIPLICATIVE_EXPRESSION MODULO error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '%'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '%'", @3.first_line);
         yyerrok;
     }
     | MULTIPLY error {
-        reportError(SYNTAX_ERROR, "Unexpected '*' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '*' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     | DIVIDE error {
-        reportError(SYNTAX_ERROR, "Unexpected '/' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '/' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     | MODULO error {
-        reportError(SYNTAX_ERROR, "Unexpected '%' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '%' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -717,11 +655,11 @@ EXPONENT_EXPRESSION:
 
     // Error Handling:
     | EXPONENT_EXPRESSION POWER error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '**'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '**'", @3.first_line);
         yyerrok;
     }
     | POWER error {
-        reportError(SYNTAX_ERROR, "Unexpected '**' At Start Of Expression", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '**' At Start Of Expression", @2.first_line);
         yyerrok;
     }
     ;
@@ -733,11 +671,11 @@ UNARY_EXPRESSION:
 
     // Error Handling:
     | NOT error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '!'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '!'", @2.first_line);
         yyerrok;
     }
     | MINUS error %prec UMINUS {
-        reportError(SYNTAX_ERROR, "Expected Expression After Unary '-'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After Unary '-'", @2.first_line);
         yyerrok;
     }
     ;
@@ -748,12 +686,12 @@ PRIMARY_EXPRESSION:
     | CHARVALUE
     | BOOLVALUE
     | STRINGVALUE
-    | IDENTIFIER PRIMARY_SUFFIX
     | LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET
+    | IDENTIFIER PRIMARY_SUFFIX
 
     // Error Handling:
     | LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )'", @2.first_line);
         yyerrok;
     }
     | LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
@@ -762,19 +700,9 @@ PRIMARY_EXPRESSION:
     }
     ;
 
-PRIMARY_SUFFIX:
-    /* empty */
+PRIMARY_SUFFIX: 
+    /*EMPTY*/
     | LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
-
-    // Error Handling:
-    | LEFT_ROUND_BRACKET ARGUMENT_LIST error {
-        reportError(SYNTAX_ERROR, "Expected ')' After Arguments", @3.first_line);
-        yyerrok;
-    }
-    | LEFT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Invalid Argument List", @1.first_line);
-        yyerrok;
-    }
     ;
 
 %%

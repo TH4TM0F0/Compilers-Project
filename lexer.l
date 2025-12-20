@@ -21,7 +21,7 @@
 
 %}
 
-%option yylineno noyywrap
+%option yylineno noyywrap noinput nounput
 
 /* Regex constructs for easier formations */
 /***************************************/
