@@ -28,6 +28,11 @@ Parameter* addParameter(Parameter* Head, Parameter* parameter) {
 }
 
 void freeParameterList(Parameter* Head) {
+    if (Head == NULL)
+    {
+        return;
+    }
+    
     while (Head) {
         Parameter* Temp = Head;
         Head = Head->Next;

@@ -23,14 +23,20 @@ int main()
     // else;
 
     // int i = 0;
+    bool x = true;
 
+    float y = false;
+    printf("%f" , y);
     // for (i++; i < 10; i = i + 1)
     // {
     //     printf("inside for\n");
     // }
 
-    //int add = 5;
-    add(3 , 4);
+
+
+
+
+
 
     
 

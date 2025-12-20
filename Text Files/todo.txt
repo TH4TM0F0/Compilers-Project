@@ -25,3 +25,5 @@ w 7owar el same identifier 3ashan n avoid el inf loops
 SEMANTICS:
     inserting in the table 
     updating on the table
+
+    Types int float bool mostly can be converted (ana elha3melo fel symbol table msh boda)
