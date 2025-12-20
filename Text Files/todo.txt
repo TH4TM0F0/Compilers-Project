@@ -19,3 +19,9 @@ restrict func def inside scopes make it only global
 
 for loop iterator , cond , step
 w 7owar el same identifier 3ashan n avoid el inf loops
+
+
+
+SEMANTICS:
+    inserting in the table 
+    updating on the table

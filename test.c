@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
+
+int add(int x , int y) { return x + y; }
+
 int main()
 {
     // int x = 3;
@@ -26,21 +29,20 @@ int main()
     //     printf("inside for\n");
     // }
 
+    //int add = 5;
+    add(3 , 4);
 
-    int a = 3;
-    int b = 3;
-    printf("%d\n" , (int)pow(a , b));
     
 
-    int test = 5;
-    int nottest = !test;
-    printf("%d\n%d" , test, nottest);
+    //printf("%d" , add);
 
+    // char* test = "Test";
+    // char buffer[512] = "\0";
+    // strcat(buffer , "Identifier (");
+    // strcat(buffer , test);
+    // strcat(buffer , ") is already declared in this scope.");
 
-    if (!(1 == 1) == 0) 
-    {
-        printf("inside if\n");
-    }
+    // printf("%s", buffer);
     return 0;
 
 }
