@@ -2,6 +2,7 @@
 #define PARAMETER_H
 
 #include "Utils.h"
+#include "ErrorHandler.h"
 
 typedef struct Parameter {
 

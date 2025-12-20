@@ -2,6 +2,9 @@
 #define UTILS_H
 
 #include<stdbool.h>
+#include<string.h>
+#include "ErrorHandler.h"
+extern int previousValidLine;
 
 typedef enum 
 {
@@ -28,5 +31,9 @@ typedef union
     char* stringData;   /* 4 */
     void* voidData;     /* 5 */
 } value;
+
+const char* typeToString(type t);
+
+bool isTypeCompatible(type lhsType , type rhsType);
 
 #endif

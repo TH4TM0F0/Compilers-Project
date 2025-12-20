@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "Utils.h"
 #include "Parameter.h"
+#include "ErrorHandler.h"
 
 #ifndef TABLE_SIZE
 #define TABLE_SIZE 211
@@ -55,7 +56,7 @@ singleEntryNode* createNewEntry(
     bool isReadOnly,
     Parameter* parameterList
 );
-void printEntry(singleEntryNode* entryToPrint , FILE* printTo);
+// void printEntry(singleEntryNode* entryToPrint , FILE* printTo);
 void freeEntry(singleEntryNode* entryToDelete);
 
 /* Table ops */

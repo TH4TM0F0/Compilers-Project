@@ -1,8 +1,7 @@
 #include "SymbolTable.h"
-#include "ErrorHandler.h"
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 static unsigned long long hashIdentifier(const char* key)
 {
@@ -21,107 +20,6 @@ static unsigned long long hashIdentifier(const char* key)
 static unsigned int getBucketIndex(const char* identifier)
 {
     return (unsigned int)(hashIdentifier(identifier) % TABLE_SIZE);
-}
-
-static const char* typeToString(type t)
-{
-    switch (t)
-    {
-        case INT_TYPE:    return "int";
-        case BOOL_TYPE:   return "bool";
-        case FLOAT_TYPE:  return "float";
-        case CHAR_TYPE:   return "char";
-        case STRING_TYPE: return "string";
-        case VOID_TYPE:   return "void";
-        default:     return "unknown";
-    }
-}
-
-static bool isTypeCompatible(type lhsType , type rhsType)
-{
-    char buffer[512] = "\0";
-
-    switch (lhsType)
-    {
-    case INT_TYPE:
-        if (rhsType == INT_TYPE || rhsType == FLOAT_TYPE)
-        {
-            return true;
-        }
-        else
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {int}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case FLOAT_TYPE:
-        if (rhsType == INT_TYPE || rhsType == FLOAT_TYPE)
-        {
-            return true;
-        }
-        else
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {float}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case CHAR_TYPE:
-        if (rhsType == CHAR_TYPE)
-        {
-            return true;
-        }
-        else 
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {char}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case BOOL_TYPE:
-        if (rhsType == BOOL_TYPE)
-        {
-            return true;
-        }
-        else 
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {bool}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case STRING_TYPE:
-        if (rhsType == STRING_TYPE)
-        {
-            return true;
-        }
-        else 
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {string}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case VOID_TYPE:
-        strcat(buffer , "Void Data is not assignable\n");
-        reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        return false;
-        break;
-    default:
-    return false;
-        break;
-    }
 }
 
 singleEntryNode* createNewEntry(type identifierType , const char* identifierName , variableORfunction varOrFunc , value currentValue , bool isInitialised , bool isReadOnly , Parameter* parameterList)
@@ -204,17 +102,17 @@ singleEntryNode* createNewEntry(type identifierType , const char* identifierName
     return createdEntry;
 }
 
-void printEntry(singleEntryNode* entryToPrint , FILE* printTo)
-{
-    // fprintf
-    // (
-    //     printTo , 
-    //     "Name: %s , Type: %s , ",
+// void printEntry(singleEntryNode* entryToPrint , FILE* printTo)
+// {
+//     // fprintf
+//     // (
+//     //     printTo , 
+//     //     "Name: %s , Type: %s , ",
 
     
     
-    // );
-}
+//     // );
+// }
 
 void freeEntry(singleEntryNode* entryToDelete)
 {
@@ -312,7 +210,7 @@ bool updateVariableValue(symbolTable* symTable, const char* identifier, type val
         strcat(buffer, identifier);
         strcat(buffer, ") is undelcared.\n");
         reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        buffer[0] = "\0";
+        buffer[0] = '\0';
         return false;
     }
 
@@ -322,7 +220,7 @@ bool updateVariableValue(symbolTable* symTable, const char* identifier, type val
         strcat(buffer, identifier);
         strcat(buffer, ") is a function, you cannot assign values to functions.\n");
         reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        buffer[0] = "\0";
+        buffer[0] = '\0';
     }
 
     if (temp->isReadOnly)
@@ -331,7 +229,7 @@ bool updateVariableValue(symbolTable* symTable, const char* identifier, type val
         strcat(buffer, identifier);
         strcat(buffer, ") is a read only, you cannot assign values to const identifiers.\n");
         reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        buffer[0] = "\0";
+        buffer[0] = '\0';
     }
 
     return false;

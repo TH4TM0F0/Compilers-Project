@@ -6,12 +6,14 @@ OBJS = parser.tab.c lex.yy.c \
        Source/Assembler.c \
        Source/ErrorHandler.c \
        Source/Parameter.c \
-       Source/Quadruple.c
+       Source/Quadruple.c \
+	   Source/Utils.c \
+	   Source/SymbolTable.c
 
 OUT = exe/compiler.exe
 
 clean:
-	rm -f lex.yy.c parser.tab.c parser.tab.h parser.output compiler.exe
+	rm -f lex.yy.c parser.tab.c parser.tab.h parser.output *.exe
 	rm -rf exe
 
 build:
