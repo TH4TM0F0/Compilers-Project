@@ -1,15 +1,17 @@
 #ifndef PARAMETER_H
 #define PARAMETER_H
 
+#include "Utils.h"
+
 typedef struct Parameter {
 
     char* Name;
-    char* Type;
+    type Type;
     struct Parameter* Next;
 
 } Parameter;
 
-Parameter* createParameter(const char* Name, const char* Type);
+Parameter* createParameter(const char* Name, const type Type);
 
 Parameter* addParameter(Parameter* Head, Parameter* parameter);
 

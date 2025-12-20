@@ -14,3 +14,13 @@ run:
 	./exe/compiler.exe "Text Files/input.txt" || true
 
 all: clean build run
+
+
+
+symtabletest:
+	gcc -IInclude Source/SymbolTable.c -o test
+	.\test.exe
+
+testt: 
+	gcc test.c -o test.output
+	./test.output
