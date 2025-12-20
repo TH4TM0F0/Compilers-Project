@@ -4,7 +4,7 @@ clean:
 
 build:
 	mkdir -p exe
-	bison -d -v parser.y
+	bison -d parser.y
 	flex lexer.l
 	gcc -Wall -IInclude parser.tab.c lex.yy.c \
 		Source/Assembler.c Source/ErrorHandler.c Source/Parameter.c Source/Quadruple.c \
