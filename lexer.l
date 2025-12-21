@@ -74,22 +74,22 @@ identifier {varNameStart}{acceptableNamingChar}*
 
 "||"                                        { printf("Rule %-20s matched: '%s'\n", "OR", yytext); return OR; }
 "&&"                                        { printf("Rule %-20s matched: '%s'\n", "AND", yytext); return AND; }
-"!"                                         { printf("Rule %-20s matched: '%s'\n", "NOT", yytext); return NOT; }
-">"                                         { printf("Rule %-20s matched: '%s'\n", "GT", yytext); return GT; }
-">="                                        { printf("Rule %-20s matched: '%s'\n", "GE", yytext); return GE; }
-"<"                                         { printf("Rule %-20s matched: '%s'\n", "ST", yytext); return ST; }
-"<="                                        { printf("Rule %-20s matched: '%s'\n", "SE", yytext); return SE; }
-"=="                                        { printf("Rule %-20s matched: '%s'\n", "EQ", yytext); return EQ; }
 "!="                                        { printf("Rule %-20s matched: '%s'\n", "NEQ", yytext); return NEQ; }
+"!"                                         { printf("Rule %-20s matched: '%s'\n", "NOT", yytext); return NOT; }
+">="                                        { printf("Rule %-20s matched: '%s'\n", "GE", yytext); return GE; }
+"<="                                        { printf("Rule %-20s matched: '%s'\n", "SE", yytext); return SE; }
+">"                                         { printf("Rule %-20s matched: '%s'\n", "GT", yytext); return GT; }
+"<"                                         { printf("Rule %-20s matched: '%s'\n", "ST", yytext); return ST; }
+"=="                                        { printf("Rule %-20s matched: '%s'\n", "EQ", yytext); return EQ; }
 
+"++"                                        { printf("Rule %-20s matched: '%s'\n", "INCREMENT", yytext); return INCREMENT; }
+"--"                                        { printf("Rule %-20s matched: '%s'\n", "DECREMENT", yytext); return DECREMENT; }
+"**"                                        { printf("Rule %-20s matched: '%s'\n", "POWER", yytext); return POWER; }
 "+"                                         { printf("Rule %-20s matched: '%s'\n", "PLUS", yytext); return PLUS; }
 "-"                                         { printf("Rule %-20s matched: '%s'\n", "MINUS", yytext); return MINUS; }
-"**"                                        { printf("Rule %-20s matched: '%s'\n", "POWER", yytext); return POWER; }
 "*"                                         { printf("Rule %-20s matched: '%s'\n", "MULTIPLY", yytext); return MULTIPLY; }
 "/"                                         { printf("Rule %-20s matched: '%s'\n", "DIVIDE", yytext); return DIVIDE; }
 "%"                                         { printf("Rule %-20s matched: '%s'\n", "MODULO", yytext); return MODULO; }
-"++"                                        { printf("Rule %-20s matched: '%s'\n", "INCREMENT", yytext); return INCREMENT; }
-"--"                                        { printf("Rule %-20s matched: '%s'\n", "DECREMENT", yytext); return DECREMENT; }
 "="                                         { printf("Rule %-20s matched: '%s'\n", "EQUAL", yytext); return EQUAL; }
 
 ";"                                         { printf("Rule %-20s matched: '%s'\n", "SEMI_COLON", yytext); return SEMI_COLON; }
@@ -102,8 +102,8 @@ identifier {varNameStart}{acceptableNamingChar}*
 
 "int"|"float"|"char"|"string"|"bool"|"void" { printf("Rule %-20s matched: '%s'\n", "DATATYPE", yytext); yylval.stringData = strdup(yytext); return DATATYPE;  }
 
-"true"                                      { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.boolData = 1; return BOOLVALUE; }
-"false"                                     { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.boolData = 0; return BOOLVALUE; }
+"true"                                      { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.intData = 1; return BOOLVALUE; }
+"false"                                     { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.intData = 0; return BOOLVALUE; }
 {intData}                                   { printf("Rule %-20s matched: '%s'\n", "INTVALUE", yytext); yylval.intData = atoi(yytext); return INTVALUE; }
 {floatData}                                 { printf("Rule %-20s matched: '%s'\n", "FLOATVALUE", yytext); yylval.floatData = (float)atof(yytext); return FLOATVALUE; }
 {charData}                                  { printf("Rule %-20s matched: '%s'\n", "CHARVALUE", yytext); yylval.charData = yytext[1]; return CHARVALUE; }

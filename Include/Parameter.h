@@ -4,7 +4,8 @@
 #include "Utils.h"
 #include "ErrorHandler.h"
 
-typedef struct Parameter {
+typedef struct Parameter 
+{
 
     char* Name;
     type Type;

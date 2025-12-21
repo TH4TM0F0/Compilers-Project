@@ -12,24 +12,84 @@
     #include "SymbolTable.h"
     #include "Utils.h"
 
+
     extern FILE* yyin;
     extern int yylex();
     extern int yyparse();
     extern int previousValidLine;
 
     void yyerror(const char* String);
+
+
+
+char *break_label_stack[100];
+char *continue_label_stack[100];
+int loop_label_top = -1;
+singleEntryNode* function_list_head = NULL;
+type current_function_return_type = VOID_TYPE; 
+
+char* get_break_label() 
+    {
+        if (loop_label_top >= 0)
+        {
+            return break_label_stack[loop_label_top];
+        }
+        return NULL;
+    }
+
+char* get_continue_label() 
+{
+    if (loop_label_top >= 0)
+    {
+        return continue_label_stack[loop_label_top];
+    }
+    return NULL;
+}
+
+void push_loop_labels(char *break_label, char *continue_label) 
+{
+    loop_label_top++;
+    break_label_stack[loop_label_top] = break_label;
+    continue_label_stack[loop_label_top] = continue_label;
+}
+
+void pop_loop_labels() 
+{
+    if (loop_label_top >= 0)
+    {
+        loop_label_top--;
+    }
+}
+
+char *current_switch_var = NULL;
+char *current_switch_end_label = NULL;
+char *current_case_next_label = NULL;
+char *default_label = NULL;
 %}
 
 %locations
 
+%code requires 
+{
+
+    #include "Quadruple.h"
+    #include "ErrorHandler.h"
+    #include "Parameter.h"
+    #include "Assembler.h"
+    #include "SymbolTable.h"
+    #include "Utils.h"
+    typedef struct Expression Expression;
+    typedef struct Parameter Parameter;
+}
+
 // Data Types:
 %union 
 {
-    int INT_DATA;
-    float FLOAT_DATA;    
-    char CHAR_DATA;
-    char* STRING_DATA;
-    void* VOID_DATA;
+    int intData;
+    float floatData;    
+    char charData;
+    char* stringData;
+    void* voidData;
     Expression expression;
     Parameter* parameterList; 
     struct 
@@ -53,18 +113,18 @@
 %token INCREMENT DECREMENT
 %token EQUAL SEMI_COLON COMMA COLON
 %token LEFT_ROUND_BRACKET RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET 
-%token <INT_DATA> INTVALUE BOOLVALUE
-%token <FLOAT_DATA> FLOATVALUE 
-%token <CHAR_DATA> CHARVALUE 
-%token <STRING_DATA> STRINGVALUE IDENTIFIER DATATYPE
+%token <intData> INTVALUE BOOLVALUE
+%token <floatData> FLOATVALUE 
+%token <charData> CHARVALUE 
+%token <stringData> STRINGVALUE IDENTIFIER DATATYPE
 %token UNKNOWN
 
 //Datatypes For Grammar Rules:
-%type <VOID_DATA> STATEMENTS CASES SINGLE_CASE DEFAULT_CASE 
+%type <voidData> STATEMENTS CASES SINGLE_CASE DEFAULT_CASE 
 %type <expression> LOGICAL_EXPRESSION LOGICAL_TERM EQUALITY_EXPRESSION RELATIONAL_EXPRESSION ADDITIVE_EXPRESSION MULTIPLICATIVE_EXPRESSION EXPONENT_EXPRESSION UNARY_EXPRESSION PRIMARY_EXPRESSION PRIMARY_CASE FUNCTION_CALL 
 %type <codeUtils> IF_STATEMENT FOR_STATEMENT WHILE_STATEMENT REPEAT_STATEMENT SWITCH_STATEMENT 
 %type <parameterList> PARAMETER_LIST PARAM_LIST_NONEMPTY ARGUMENT_LIST ARGUMENTS PRIMARY_SUFFIX /* Check PRIMARY_SUFFIX later */
-%type <STRING_DATA> IDENTIFIERS
+%type <stringData> IDENTIFIERS
 
 // Operator Precedence:
 %nonassoc LOWER_THAN_ELSE

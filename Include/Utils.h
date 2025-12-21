@@ -24,15 +24,15 @@ typedef enum
 
 typedef union 
 {
-    int intData;        /* 0 */
-    bool boolData;      /* 1 */
-    float floatData;    /* 2 */
-    char charData;      /* 3 */
-    char* stringData;   /* 4 */
-    void* voidData;     /* 5 */
+    int INT_Data;        /* 0 */
+    bool BOOL_Data;      /* 1 */
+    float FLOAT_Data;    /* 2 */
+    char CHAR_Data;      /* 3 */
+    char* STRING_Data;   /* 4 */
+    void* VOID_Data;     /* 5 */
 } value;
 
-typedef struct 
+typedef struct Expression
 {
     type expressionType;
     value expressionValue;

@@ -99,4 +99,5 @@ bool isTypeCompatible(type lhsType , type rhsType)
     return false;
         break;
     }
+    return false;
 }

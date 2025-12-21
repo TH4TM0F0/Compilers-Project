@@ -33,7 +33,7 @@ int main()
     // }
 
 
- 
+    
 
 
 
@@ -42,13 +42,13 @@ int main()
 
     //printf("%d" , add);
 
-    // char* test = "Test";
+    char* test = "Test";
     // char buffer[512] = "\0";
     // strcat(buffer , "Identifier (");
     // strcat(buffer , test);
     // strcat(buffer , ") is already declared in this scope.");
 
-    // printf("%s", buffer);
+    printf("%s", test);
     return 0;
 
 }

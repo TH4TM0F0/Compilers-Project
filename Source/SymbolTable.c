@@ -43,7 +43,7 @@ singleEntryNode* createNewEntry(type identifierType , const char* identifierName
     createdEntry->identifierType = identifierType;
     createdEntry->identifierName = NULL;
     createdEntry->varOrFunc = SYMBOL_VARIABLE;  
-    createdEntry->currentValue.voidData = NULL;
+    createdEntry->currentValue.VOID_Data = NULL;
     createdEntry->isInitialised = false;        
     createdEntry->isReadOnly = false;           
     createdEntry->isUsed = false;
@@ -84,10 +84,10 @@ singleEntryNode* createNewEntry(type identifierType , const char* identifierName
     { /* Assigning the current value if it is initialised */
         if (identifierType == STRING_TYPE)
         {
-            const char *src = currentValue.stringData ? currentValue.stringData : "";
+            const char *src = currentValue.STRING_Data ? currentValue.STRING_Data : "";
 
-            createdEntry->currentValue.stringData = strdup(src);
-            if (createdEntry->currentValue.stringData == NULL)
+            createdEntry->currentValue.STRING_Data = strdup(src);
+            if (createdEntry->currentValue.STRING_Data == NULL)
             {
                 freeEntry(createdEntry);
                 return NULL;
@@ -109,8 +109,6 @@ singleEntryNode* createNewEntry(type identifierType , const char* identifierName
 //     //     printTo , 
 //     //     "Name: %s , Type: %s , ",
 
-    
-    
 //     // );
 // }
 
@@ -124,9 +122,9 @@ void freeEntry(singleEntryNode* entryToDelete)
     free(entryToDelete->identifierName);
     freeParameterList(entryToDelete->parameterList);
     
-    if (entryToDelete->varOrFunc == SYMBOL_VARIABLE && entryToDelete->identifierType == STRING_TYPE && entryToDelete->isInitialised && entryToDelete->currentValue.stringData != NULL)
+    if (entryToDelete->varOrFunc == SYMBOL_VARIABLE && entryToDelete->identifierType == STRING_TYPE && entryToDelete->isInitialised && entryToDelete->currentValue.STRING_Data != NULL)
     {
-        free(entryToDelete->currentValue.stringData);
+        free(entryToDelete->currentValue.STRING_Data);
     }
 
     free(entryToDelete);
@@ -261,6 +259,7 @@ void freeSymbolTable(symbolTable* symTable)
             next = next->nextEntry;
         }
         freeEntry(tempNode);
+        symTable->buckets[i] = NULL;
     }
 }
 
@@ -504,16 +503,15 @@ bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type r
     
     if (target->identifierType == STRING_TYPE)
     { /* free old string if it existed */
-        if (target->isInitialised && target->currentValue.stringData != NULL)
+        if (target->isInitialised && target->currentValue.STRING_Data != NULL)
         {
-            free(target->currentValue.stringData);
-            target->currentValue.stringData = NULL;
+            free(target->currentValue.STRING_Data);
+            target->currentValue.STRING_Data = NULL;
         }
 
-        const char* src = (rhsVal.stringData != NULL) ? rhsVal.stringData : "";
-        target->currentValue.stringData = strdup(src);
-
-        if (target->currentValue.stringData == NULL)
+        const char* src = (rhsVal.STRING_Data != NULL) ? rhsVal.STRING_Data : "";
+        target->currentValue.STRING_Data = strdup(src);
+        if (target->currentValue.STRING_Data == NULL)
         {
             perror("strdup failed while assigning string");
             return false;
