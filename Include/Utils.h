@@ -46,8 +46,6 @@ const char* valueToString(type t, value v);
 
 bool isTypeCompatible(type lhsType , type rhsType);
 
-static bool isNumericType(type t);
-
 char** split(const char* str, const char* delimiter, int* count);
 
 void free_split_result(char** result, int count);
