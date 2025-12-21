@@ -367,7 +367,8 @@ DECLARATION:
         DeclNode* cur = $2;
         while (cur) {
             singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
-            if (already) {
+            if (already) 
+            {
                 reportError(SEMANTIC_ERROR, "Redeclaration in same scope", cur->line);
                 cur = cur->next;
                 continue;
@@ -485,6 +486,11 @@ ASSIGNMENT:
                 addQuadruple(OP_ASSN, rhs, NULL, $1);
                 free(rhs);
                 updateVariableValueScoped(&gScopeStack, $1, e->identifierType, $3->expressionValue);
+                /* Will check cases where we update the isUsed flag */
+                // if (e->isUsed == false) 
+                // {
+                //     e->isUsed = true;
+                // }
             }
         }
     }
@@ -567,7 +573,7 @@ FUNCTION_CALL:
     ;
 
 IF_STATEMENT:
-      IF_HEAD BLOCK %prec LOWER_THAN_ELSE {
+    IF_HEAD BLOCK %prec LOWER_THAN_ELSE {
         addQuadruple(OP_LABEL, NULL, NULL, $1.false_label);
         free($1.false_label);
         free($1.end_label);

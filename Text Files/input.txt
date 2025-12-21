@@ -1,0 +1,8 @@
+if (true)
+{
+// do smth
+}
+else if(false)
+{
+// do antoh
+}

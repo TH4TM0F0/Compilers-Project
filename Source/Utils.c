@@ -1,5 +1,6 @@
 #include "Utils.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 const char* typeToString(type t)
 {
@@ -14,6 +15,52 @@ const char* typeToString(type t)
         default:     return "unknown";
     }
 }
+
+const char* valueToString(type t, value v)
+{
+    static char buffer[128];   // static lifetime
+    buffer[0] = '\0';
+
+    switch (t)
+    {
+        case INT_TYPE:
+            snprintf(buffer, sizeof(buffer), "%d", v.INT_Data);
+            break;
+
+        case FLOAT_TYPE:
+            snprintf(buffer, sizeof(buffer), "%f", v.FLOAT_Data);
+            break;
+
+        case CHAR_TYPE:
+            snprintf(buffer, sizeof(buffer), "'%c'", v.CHAR_Data);
+            break;
+
+        case BOOL_TYPE:
+            snprintf(buffer, sizeof(buffer), "%s", v.BOOL_Data ? "true" : "false");
+            break;
+
+        case STRING_TYPE:
+            snprintf(
+                buffer,
+                sizeof(buffer),
+                "\"%s\"",
+                v.STRING_Data ? v.STRING_Data : ""
+            );
+            break;
+
+        case VOID_TYPE:
+            snprintf(buffer, sizeof(buffer), "<void>");
+            break;
+
+        default:
+            snprintf(buffer, sizeof(buffer), "<unknown>");
+            break;
+    }
+
+    return buffer;
+}
+
+
 
 bool isTypeCompatible(type lhsType , type rhsType)
 {
@@ -101,6 +148,11 @@ bool isTypeCompatible(type lhsType , type rhsType)
         break;
     }
     return false;
+}
+
+static bool isNumericType(type t) 
+{
+    return t == INT_TYPE || t == FLOAT_TYPE || t == BOOL_TYPE;
 }
 
 char** split(const char* str, const char* delimiter, int* count) {

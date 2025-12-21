@@ -42,7 +42,11 @@ typedef struct Expression
 
 const char* typeToString(type t);
 
+const char* valueToString(type t, value v);
+
 bool isTypeCompatible(type lhsType , type rhsType);
+
+static bool isNumericType(type t);
 
 char** split(const char* str, const char* delimiter, int* count);
 

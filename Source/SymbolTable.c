@@ -1,4 +1,5 @@
 #include "SymbolTable.h"
+#include "ErrorHandler.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -188,7 +189,6 @@ bool insertSymbolTableEntry(symbolTable* symTable, singleEntryNode* newEntry)
 
     reportError(SEMANTIC_ERROR , buffer , previousValidLine);
     freeEntry(newEntry);
-    
     return false;
 }
 
@@ -204,35 +204,62 @@ bool updateVariableValue(symbolTable* symTable, const char* identifier, type val
 
     if (temp == NULL)
     { /* Undeclared identifier */
+        buffer[0] = '\0';
         strcat(buffer, "Identifier (");
         strcat(buffer, identifier);
         strcat(buffer, ") is undelcared.\n");
         reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        buffer[0] = '\0';
         return false;
     }
 
     if (temp->varOrFunc == SYMBOL_FUNCTION)
     { /* Attempt to assign data to function */
+        buffer[0] = '\0';
         strcat(buffer, "Identifier (");
         strcat(buffer, identifier);
         strcat(buffer, ") is a function, you cannot assign values to functions.\n");
         reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        buffer[0] = '\0';
+        return false;
     }
 
     if (temp->isReadOnly)
     { /* Attempt to assign data to const identifiers */
+        buffer[0] = '\0';
         strcat(buffer, "Identifier (");
         strcat(buffer, identifier);
         strcat(buffer, ") is a read only, you cannot assign values to const identifiers.\n");
         reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        buffer[0] = '\0';
+        return false;
     }
 
-    return false;
-    // go to the outer scope and search again
+    if (!isTypeCompatible(temp->identifierType , valueType))
+    { /* Type check: LHS is the variable type stored in the symbol table */
+        /* Utils Reports the error */
+        return false;
+    }
 
+    if (temp->identifierType == STRING_TYPE)
+    { /* free old string if it existed */
+        if (temp->isInitialised && temp->currentValue.STRING_Data != NULL)
+        {
+            free(temp->currentValue.STRING_Data);
+            temp->currentValue.STRING_Data = NULL;
+        }
+
+        const char* src = (newValue.STRING_Data != NULL) ? newValue.STRING_Data : "";
+        temp->currentValue.STRING_Data = strdup(src);
+        if (temp->currentValue.STRING_Data == NULL)
+        {
+            perror("strdup failed while assigning string");
+            return false;
+        }
+    }
+    else
+    { /* For all types but string */
+        temp->currentValue = newValue;
+    }
+    temp->isInitialised = true;
+    return true;
 }
 
 void freeSymbolTable(symbolTable* symTable)
@@ -541,7 +568,7 @@ void dumpScopeStackToFile(scopeStack* s, const char* filename) {
             singleEntryNode* node = cur->table.buckets[i];
             while (node) {
                 fprintf(f,
-                    "Name=%s | Kind=%s | Type=%s | Init=%d | Const=%d | Used=%d\n",
+                    "Name = %s | Kind = %s | Type = %s | Init = %d | Const = %d | Used = %d ",
                     node->identifierName ? node->identifierName : "NULL",
                     (node->varOrFunc == SYMBOL_FUNCTION) ? "FUNCTION" : "VARIABLE",
                     typeToString(node->identifierType),
@@ -549,6 +576,11 @@ void dumpScopeStackToFile(scopeStack* s, const char* filename) {
                     node->isReadOnly ? 1 : 0,
                     node->isUsed ? 1 : 0
                 );
+                if (node->isInitialised && node->varOrFunc == SYMBOL_VARIABLE)
+                {
+                    fprintf(f,
+                        "| Current Value = %s\n", valueToString(node->identifierType, node->currentValue));
+                    }
                 node = node->nextEntry;
             }
         }

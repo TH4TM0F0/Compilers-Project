@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include "Utils.h"
 #include "Parameter.h"
-#include "ErrorHandler.h"
 
 #ifndef TABLE_SIZE
 #define TABLE_SIZE 211
@@ -63,9 +62,6 @@ void symbolTableInit(symbolTable* symTable);
 singleEntryNode* searchFor(symbolTable* symTable, const char* identifier);
 bool insertSymbolTableEntry(symbolTable* symTable, singleEntryNode* newEntry);
 bool updateVariableValue(symbolTable* symTable, const char* identifier, type valueType , value newValue);
-
-/* Table Utils*/
-void printTable(symbolTable* symTable);
 
 /* Freeing */
 void freeSymbolTable(symbolTable* symTable);

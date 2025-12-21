@@ -58,7 +58,7 @@ const char* operatorToString (Quad_Op Operator) {
         // Type Conversion Operator(s):
         case OP_ITOF: return "INT_TO_FLOAT";
         case OP_FTOI: return "FLOAT_TO_INT";
-        case OP_CTOI: return "CHAR_TO_INT";
+        // case OP_CTOI: return "CHAR_TO_INT";
         case OP_ITOB: return "INT_TO_BOOL";
         // Anomaly Operator:
         default: return "UNKNOWN";

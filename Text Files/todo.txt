@@ -1,29 +1,25 @@
-function call without semi in the end
- int x = add(3,5) + 4;
-
- mawdoo3 unary ops 
-    minus kaza
-
-
-Switch case issue in mult defaults
-Support  int char bool only 
-
-
-Return only works lie return; but not return expression; like return 5; or return "adas";
-
-
-
-
-restrict func def inside scopes make it only global
-
-
-for loop iterator , cond , step
-w 7owar el same identifier 3ashan n avoid el inf loops
-
-
-
 SEMANTICS:
-    inserting in the table 
-    updating on the table
+
 
     Types int float bool mostly can be converted (ana elha3melo fel symbol table msh boda)
+
+
+
+
+String quotes issue : fixed
+char quotes issue : i guess 
+
+negative nums are not stored ?????????
+
+
+int and float issue after assigning diff types (need to cast or handle it through the union)
+
+
+return issue in the functions
+
+
+isUsed flag for functions when func call
+for variables also
+
+func decl working fine 
+func call not working at all

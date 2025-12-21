@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
+#include <string.h>
 
 int add(int x , int y) { return x + y; }
 
@@ -23,18 +24,18 @@ int main()
     // else;
 
     // int i = 0;
-    bool x = true;
+    // bool x = true;
 
-    float y = false;
-    printf("%f" , y);
+    // float y = false;
+    // printf("%f" , y);
     // for (i++; i < 10; i = i + 1)
     // {
-    //     printf("inside for\n");
-    // }
-
-
-    
-
+        //     printf("inside for\n");
+        // }
+        
+        
+    char aaaa = '\t';
+    printf("%d" , (int)strlen("\t"));
 
 
 
@@ -42,13 +43,13 @@ int main()
 
     //printf("%d" , add);
 
-    char* test = "Test";
-    // char buffer[512] = "\0";
-    // strcat(buffer , "Identifier (");
-    // strcat(buffer , test);
-    // strcat(buffer , ") is already declared in this scope.");
+    // char* test = "Test";
+    // // char buffer[512] = "\0";
+    // // strcat(buffer , "Identifier (");
+    // // strcat(buffer , test);
+    // // strcat(buffer , ") is already declared in this scope.");
 
-    printf("%s", test);
+    // printf("%s", test);
     return 0;
 
 }

@@ -106,8 +106,40 @@ identifier {varNameStart}{acceptableNamingChar}*
 "false"                                     { printf("Rule %-20s matched: '%s'\n", "BOOLVALUE", yytext); yylval.intData = 0; return BOOLVALUE; }
 {intData}                                   { printf("Rule %-20s matched: '%s'\n", "INTVALUE", yytext); yylval.intData = atoi(yytext); return INTVALUE; }
 {floatData}                                 { printf("Rule %-20s matched: '%s'\n", "FLOATVALUE", yytext); yylval.floatData = (float)atof(yytext); return FLOATVALUE; }
-{charData}                                  { printf("Rule %-20s matched: '%s'\n", "CHARVALUE", yytext); yylval.charData = yytext[1]; return CHARVALUE; }
-{stringData}                                { printf("Rule %-20s matched: '%s'\n", "STRINGVALUE", yytext); yylval.stringData = strdup(yytext); return STRINGVALUE; }
+{charData} {
+    /* yytext looks like:  'a'   or   '\n'   or   '\\'   or   '\''  */
+    char out = '\0';
+
+    if (yytext[1] != '\\') {
+        /* Normal character: 'a' */
+        out = yytext[1];
+    } else {
+        /* Escape sequence: '\n', '\t', '\\', '\'' ... */
+        char esc = yytext[2];
+        switch (esc) {
+            case 'n':  out = '\n'; break;
+            case 't':  out = '\t'; break;
+            case 'r':  out = '\r'; break;
+            case 'b':  out = '\b'; break;
+            case '\\': out = '\\'; break;
+            case '\'': out = '\''; break;
+            case '"':  out = '\"'; break;
+
+            /* If you want to support '\0' too */
+            case '0':  out = '\0'; break;
+
+            default:
+                reportError(SYNTAX_ERROR, "Unknown escape sequence in character literal", yylloc.first_line);
+                return UNKNOWN;
+        }
+    }
+
+    yylval.charData = out;
+    return CHARVALUE;
+}
+
+{stringData}                                { printf("Rule %-20s matched: '%s'\n", "STRINGVALUE", yytext); int n = (int)strlen(yytext); char* s = (char*)malloc(n - 1); memcpy(s, yytext + 1, n - 2); s[n - 2] = '\0'; yylval.stringData = s; return STRINGVALUE; }
+
 
 {identifier}                                { printf("Rule %-20s matched: '%s'\n", "IDENTIFIER", yytext); yylval.stringData = strdup(yytext); return IDENTIFIER; }
 
