@@ -82,4 +82,6 @@ singleEntryNode* functionLookup(scopeStack* s, const char* identifierName);
 bool insertInCurrentScope(scopeStack* s, singleEntryNode* entry);
 bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type rhsType, value rhsVal);
 
+void dumpScopeStackToFile(scopeStack* s, const char* filename);
+
 #endif

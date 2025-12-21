@@ -526,6 +526,39 @@ bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type r
     return true;
 }
 
+void dumpScopeStackToFile(scopeStack* s, const char* filename) {
+    FILE* f = fopen(filename, "w");
+    if (!f) return;
+
+    fprintf(f, "=== Symbol Tables (All Scopes) ===\n");
+
+    scope* cur = s ? s->topScope : NULL;
+    while (cur) {
+        fprintf(f, "\n--- Scope Depth: %d ---\n", cur->scopeDepth);
+
+        // Print this scope's table buckets
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            singleEntryNode* node = cur->table.buckets[i];
+            while (node) {
+                fprintf(f,
+                    "Name=%s | Kind=%s | Type=%s | Init=%d | Const=%d | Used=%d\n",
+                    node->identifierName ? node->identifierName : "NULL",
+                    (node->varOrFunc == SYMBOL_FUNCTION) ? "FUNCTION" : "VARIABLE",
+                    typeToString(node->identifierType),
+                    node->isInitialised ? 1 : 0,
+                    node->isReadOnly ? 1 : 0,
+                    node->isUsed ? 1 : 0
+                );
+                node = node->nextEntry;
+            }
+        }
+
+        cur = cur->parentScope;
+    }
+
+    fclose(f);
+}
+
 // int main(void)
 // {
 //     printf("Program started\n");

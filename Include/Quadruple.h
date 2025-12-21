@@ -85,6 +85,8 @@ void addQuadruple (Quad_Op Operator, const char* Argument1, const char* Argument
 
 void printQuadruples ();
 
+void printQuadruplesToFile(const char* filename);
+
 void freeQuadruples ();
 
 #endif

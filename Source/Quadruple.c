@@ -90,6 +90,24 @@ void printQuadruples () {
     }
 }
 
+void printQuadruplesToFile(const char* filename) {
+    FILE* f = fopen(filename, "w");
+    if (!f) return;
+
+    fprintf(f, "=== Generated Quadruples ===\n");
+    for (int i = 0; i < quadruplesCount; i++) {
+        fprintf(f, "[%d] (%s, %s, %s, %s)\n",
+            i,
+            operatorToString(Quadruples[i].Operator),
+            Quadruples[i].Argument1 ? Quadruples[i].Argument1 : "NONE",
+            Quadruples[i].Argument2 ? Quadruples[i].Argument2 : "NONE",
+            Quadruples[i].Result ? Quadruples[i].Result : "NONE"
+        );
+    }
+    fclose(f);
+}
+
+
 void freeQuadruples () {
     for (int i = 0; i < quadruplesCount; i++) {
         free(Quadruples[i].Argument1);

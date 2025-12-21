@@ -44,4 +44,8 @@ const char* typeToString(type t);
 
 bool isTypeCompatible(type lhsType , type rhsType);
 
+char** split(const char* str, const char* delimiter, int* count);
+
+void free_split_result(char** result, int count);
+
 #endif

@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include <stdlib.h>
 
 const char* typeToString(type t)
 {
@@ -100,4 +101,58 @@ bool isTypeCompatible(type lhsType , type rhsType)
         break;
     }
     return false;
+}
+
+char** split(const char* str, const char* delimiter, int* count) {
+    char* str_copy = strdup(str);
+    if (!str_copy) {
+        return NULL;
+    }
+
+    char** result = malloc(sizeof(char*) * 10);
+    if (!result) {
+        free(str_copy);
+        return NULL;
+    }
+
+    int index = 0;
+    char* token = strtok(str_copy, delimiter);
+
+    // Loop through the string and split it based on the delimiter
+    while (token != NULL) {
+        result[index] = strdup(token);
+        if (!result[index]) {
+            for (int i = 0; i < index; i++) {
+                free(result[i]);
+            }
+            free(result);
+            free(str_copy);
+            return NULL;
+        }
+        index++;
+
+        if (index % 10 == 0) {
+            result = realloc(result, sizeof(char*) * (index + 10));
+            if (!result) {
+                for (int i = 0; i < index; i++) {
+                    free(result[i]);
+                }
+                free(str_copy);
+                return NULL;
+            }
+        }
+
+        token = strtok(NULL, delimiter);
+    }
+
+    *count = index;
+    free(str_copy);
+    return result;
+}
+
+void free_split_result(char** result, int count) {
+    for (int i = 0; i < count; i++) {
+        free(result[i]);
+    }
+    free(result);
 }
