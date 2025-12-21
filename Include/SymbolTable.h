@@ -12,7 +12,6 @@
 
 extern int previousValidLine;
 
-
 typedef struct singleEntryNode
 {
     type identifierType;                /* BOTH */

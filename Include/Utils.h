@@ -32,6 +32,14 @@ typedef union
     void* voidData;     /* 5 */
 } value;
 
+typedef struct 
+{
+    type expressionType;
+    value expressionValue;
+    char *temp_var;
+} Expression;
+
+
 const char* typeToString(type t);
 
 bool isTypeCompatible(type lhsType , type rhsType);

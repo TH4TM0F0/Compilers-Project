@@ -9,6 +9,8 @@
     #include "ErrorHandler.h"
     #include "Parameter.h"
     #include "Assembler.h"
+    #include "SymbolTable.h"
+    #include "Utils.h"
 
     extern FILE* yyin;
     extern int yylex();
@@ -23,12 +25,25 @@
 // Data Types:
 %union 
 {
-    int intData;
-    float floatData;    
-    char charData;
-    char* stringData;
-    int boolData;
+    int INT_DATA;
+    float FLOAT_DATA;    
+    char CHAR_DATA;
+    char* STRING_DATA;
     void* VOID_DATA;
+    Expression expression;
+    Parameter* parameterList; 
+    struct 
+    {
+        char* code;     
+        char* true_label;
+        char* false_label;
+        char* next_label;
+        char* start_label;
+        char* end_label;
+        char* cond_label;
+        char* body_label;
+        char* incr_label;
+    } codeUtils;
 }
 
 // Tokens:
@@ -38,14 +53,18 @@
 %token INCREMENT DECREMENT
 %token EQUAL SEMI_COLON COMMA COLON
 %token LEFT_ROUND_BRACKET RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET 
-%token <intData> INTVALUE BOOLVALUE 
-%token <floatData> FLOATVALUE 
-%token <charData> CHARVALUE 
-%token <stringData> STRINGVALUE IDENTIFIER DATATYPE
+%token <INT_DATA> INTVALUE BOOLVALUE
+%token <FLOAT_DATA> FLOATVALUE 
+%token <CHAR_DATA> CHARVALUE 
+%token <STRING_DATA> STRINGVALUE IDENTIFIER DATATYPE
 %token UNKNOWN
 
 //Datatypes For Grammar Rules:
-%type <VOID_DATA> STATEMENTS
+%type <VOID_DATA> STATEMENTS CASES SINGLE_CASE DEFAULT_CASE 
+%type <expression> LOGICAL_EXPRESSION LOGICAL_TERM EQUALITY_EXPRESSION RELATIONAL_EXPRESSION ADDITIVE_EXPRESSION MULTIPLICATIVE_EXPRESSION EXPONENT_EXPRESSION UNARY_EXPRESSION PRIMARY_EXPRESSION PRIMARY_CASE FUNCTION_CALL 
+%type <codeUtils> IF_STATEMENT FOR_STATEMENT WHILE_STATEMENT REPEAT_STATEMENT SWITCH_STATEMENT 
+%type <parameterList> PARAMETER_LIST PARAM_LIST_NONEMPTY ARGUMENT_LIST ARGUMENTS PRIMARY_SUFFIX /* Check PRIMARY_SUFFIX later */
+%type <STRING_DATA> IDENTIFIERS
 
 // Operator Precedence:
 %nonassoc LOWER_THAN_ELSE
@@ -189,15 +208,15 @@ ASSIGNMENT:
     ;
 
 FUNCTION_CALL:                                        
-      IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
-      | IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST error {
-        reportError(SYNTAX_ERROR, "Expected ')' In Function Call", @4.first_line);
-        yyerrok;
-      }
-      | IDENTIFIER error ARGUMENT_LIST RIGHT_ROUND_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected '(' In Function Call", @2.first_line);
-        yyerrok;
-      }
+    IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
+    | IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST error {
+    reportError(SYNTAX_ERROR, "Expected ')' In Function Call", @4.first_line);
+    yyerrok;
+    }
+    | IDENTIFIER error ARGUMENT_LIST RIGHT_ROUND_BRACKET {
+    reportError(SYNTAX_ERROR, "Expected '(' In Function Call", @2.first_line);
+    yyerrok;
+    }
     ;                                                 
 
 IF_STATEMENT: 
@@ -384,7 +403,7 @@ SWITCH_STATEMENT:
     ;
 
 CASES: 
-    /* EMPTY */ 
+    /* EMPTY */ { $$ = NULL; }
     | CASES SINGLE_CASE
     ;
 
@@ -457,7 +476,7 @@ FUNCTION_DEFINITION_IMPLEMENTATION :
     ;
 
 PARAMETER_LIST: 
-    /* EMPTY */                   
+    /* EMPTY */ { $$ = NULL; }        
     | PARAM_LIST_NONEMPTY          
     ;
 
@@ -481,7 +500,7 @@ PARAM_LIST_NONEMPTY :
     ;
 
 ARGUMENT_LIST: 
-    /* EMPTY */
+    /* EMPTY */ { $$ = NULL; }
     | ARGUMENTS
     ;
 
@@ -701,7 +720,7 @@ PRIMARY_EXPRESSION:
     ;
 
 PRIMARY_SUFFIX: 
-    /*EMPTY*/
+    /*EMPTY*/ { $$ = NULL; }
     | LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET
     ;
 
