@@ -125,8 +125,10 @@
     }
 
     // ------------------------------
-    // FOR condition expression stack (for correct step order)
+    // FOR condition expression stack (silenced unused)
     // ------------------------------
+    static void push_for_cond(struct Expression* e) __attribute__((unused));
+    static struct Expression* pop_for_cond(void) __attribute__((unused));
     static struct Expression* for_cond_expr_stack[100];
     static int for_cond_top = -1;
 
@@ -206,14 +208,9 @@
         return INT_TYPE;
     }
 
-    // Function params must use YOUR Parameter.h
-    static Parameter* makeParam(type t, const char* name) {
-        return createParameter(name, t);         // returns Parameter* with Name/Type/Next
-    }
+    static Parameter* makeParam(type t, const char* name) { return createParameter(name, t); }
 
-    static Parameter* appendParam(Parameter* list, Parameter* tail) {
-        return addParameter(list, tail);
-    }
+    static Parameter* appendParam(Parameter* list, Parameter* tail) { return addParameter(list, tail); }
 
     // ------------------------------
     // Global scope stack
@@ -229,7 +226,6 @@
     #include "Utils.h"
     #include "SymbolTable.h"
     #include "Parameter.h"
-
     typedef struct Expression Expression;
     typedef struct DeclNode DeclNode;
     typedef struct ArgNode ArgNode;
@@ -243,13 +239,10 @@
     char charData;
     char* stringData;
     void* voidData;
-
     DeclNode* declList;
     Expression* expr;
-
     Parameter* parameterList;  // for function definition params only
     ArgNode* argList;          // for function call args only
-
     struct
     {
         char* code;
@@ -259,7 +252,6 @@
         char* start_label;
         char* end_label;
         char* cond_label;
-        char* body_label;
         char* incr_label;
     } codeUtils;
 }
@@ -278,13 +270,12 @@
 %token UNKNOWN
 
 // Types:
-%type <voidData> STATEMENTS CASES SINGLE_CASE DEFAULT_CASE DECLARATION
-%type <expr> LOGICAL_EXPRESSION LOGICAL_TERM EQUALITY_EXPRESSION RELATIONAL_EXPRESSION ADDITIVE_EXPRESSION MULTIPLICATIVE_EXPRESSION EXPONENT_EXPRESSION UNARY_EXPRESSION PRIMARY_EXPRESSION PRIMARY_CASE // FUNCTION_CALL
-%type <codeUtils> IF_STATEMENT FOR_STATEMENT WHILE_STATEMENT REPEAT_STATEMENT SWITCH_STATEMENT
+%type <voidData> STATEMENTS CASES SINGLE_CASE DEFAULT_CASE DECLARATION BLOCK DEFAULT_CASE_OPT
+%type <expr> LOGICAL_EXPRESSION LOGICAL_TERM EQUALITY_EXPRESSION RELATIONAL_EXPRESSION ADDITIVE_EXPRESSION MULTIPLICATIVE_EXPRESSION EXPONENT_EXPRESSION UNARY_EXPRESSION PRIMARY_EXPRESSION PRIMARY_CASE FUNCTION_CALL
+%type <codeUtils> IF_STATEMENT FOR_STATEMENT WHILE_STATEMENT REPEAT_STATEMENT SWITCH_STATEMENT IF_HEAD WHILE_HEAD REPEAT_HEAD FOR_HEADER
 %type <parameterList> PARAMETER_LIST PARAM_LIST_NONEMPTY
 %type <argList> ARGUMENT_LIST ARGUMENTS PRIMARY_SUFFIX
 %type <declList> IDENTIFIERS
-%type <codeUtils> IF_HEAD WHILE_HEAD REPEAT_HEAD FOR_SETUP FOR_AFTERSTEP
 
 // Operator Precedence:
 %nonassoc LOWER_THAN_ELSE
@@ -313,8 +304,9 @@ STATEMENTS:
 STATEMENT:
     DECLARATION SEMI_COLON
     | ASSIGNMENT SEMI_COLON
-    | PRIMARY_EXPRESSION  SEMI_COLON
+    | FUNCTION_CALL SEMI_COLON
     | RETURN_STATEMENT SEMI_COLON
+
     | BREAK SEMI_COLON {
         char* b = get_break_label();
         if (!b) reportError(SEMANTIC_ERROR, "break used outside loop/switch", @1.first_line);
@@ -325,12 +317,7 @@ STATEMENT:
         if (!c) reportError(SEMANTIC_ERROR, "continue used outside loop", @1.first_line);
         else addQuadruple(OP_GOTO, NULL, NULL, c);
     }
-
-    // ANY standalone { } introduces scope
-    | LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-      STATEMENTS
-      RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-
+    | BLOCK
     | IF_STATEMENT
     | WHILE_STATEMENT
     | FOR_STATEMENT
@@ -347,7 +334,7 @@ STATEMENT:
         reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
-    | PRIMARY_EXPRESSION  error {
+    | FUNCTION_CALL error {
         reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
@@ -363,21 +350,20 @@ STATEMENT:
         reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
         yyerrok;
     }
-    | LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}'", @3.first_line);
-        yyerrok;
-    }
     | EQUAL LOGICAL_EXPRESSION SEMI_COLON {
         reportError(SYNTAX_ERROR, "Expected Identifier Before '='", @1.first_line);
         yyerrok;
     }
     ;
 
+BLOCK:
+    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); } STATEMENTS RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); $$ = NULL; }
+    ;
+
 DECLARATION:
     DATATYPE IDENTIFIERS {
         type declType = datatypeStringToType($1);
         bool isConst = false;
-
         DeclNode* cur = $2;
         while (cur) {
             singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
@@ -386,21 +372,15 @@ DECLARATION:
                 cur = cur->next;
                 continue;
             }
-
             bool hasInit = (cur->initExpr != NULL);
-            if (hasInit) {
-                if (!isTypeCompatible(declType, cur->initExpr->expressionType)) {
+            if (hasInit) 
+                if (!isTypeCompatible(declType, cur->initExpr->expressionType)) 
                     hasInit = false;
-                }
-            }
-
             value initVal;
             memset(&initVal, 0, sizeof(initVal));
             if (hasInit) initVal = cur->initExpr->expressionValue;
-
             singleEntryNode* e = createNewEntry(declType, cur->name, SYMBOL_VARIABLE, initVal, hasInit, isConst, NULL);
             insertInCurrentScope(&gScopeStack, e);
-
             if (hasInit) {
                 char* rhs = exprToOperand(cur->initExpr);
                 addQuadruple(OP_ASSN, rhs, NULL, cur->name);
@@ -409,14 +389,12 @@ DECLARATION:
             }
             cur = cur->next;
         }
-
         freeDeclList($2);
         $$ = NULL;
     }
     | CONST DATATYPE IDENTIFIERS {
         type declType = datatypeStringToType($2);
         bool isConst = true;
-
         DeclNode* cur = $3;
         while (cur) {
             singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
@@ -425,36 +403,29 @@ DECLARATION:
                 cur = cur->next;
                 continue;
             }
-
             if (!cur->initExpr) {
                 reportError(SEMANTIC_ERROR, "const must be initialized", cur->line);
                 cur = cur->next;
                 continue;
             }
-
             if (!isTypeCompatible(declType, cur->initExpr->expressionType)) {
                 cur = cur->next;
                 continue;
             }
-
             value initVal = cur->initExpr->expressionValue;
-
             singleEntryNode* e = createNewEntry(declType, cur->name, SYMBOL_VARIABLE, initVal, true, isConst, NULL);
             insertInCurrentScope(&gScopeStack, e);
-
             char* rhs = exprToOperand(cur->initExpr);
             addQuadruple(OP_ASSN, rhs, NULL, cur->name);
             free(rhs);
-
             updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
             cur = cur->next;
         }
-
         freeDeclList($3);
         $$ = NULL;
     }
 
-    // Error Handling
+    // Error Handling:
     | DATATYPE error {
         reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After Datatype", @2.first_line);
         yyerrok;
@@ -504,16 +475,11 @@ IDENTIFIERS:
 ASSIGNMENT:
     IDENTIFIER EQUAL LOGICAL_EXPRESSION {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
-        if (!e) {
-            reportError(SEMANTIC_ERROR, "Identifier is undeclared", @1.first_line);
-        }
-        else {
-            if (e->isReadOnly) {
-                reportError(SEMANTIC_ERROR, "Cannot assign to const", @1.first_line);
-            }
-            else if (!isTypeCompatible(e->identifierType, $3->expressionType)) {
-                /* isTypeCompatible already reports */
-            }
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared", @1.first_line);
+        else 
+        {
+            if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot assign to const", @1.first_line);
+            else if (!isTypeCompatible(e->identifierType, $3->expressionType));  // isTypeCompatible already reports 
             else {
                 char* rhs = exprToOperand($3);
                 addQuadruple(OP_ASSN, rhs, NULL, $1);
@@ -558,15 +524,14 @@ ASSIGNMENT:
     }
     ;
 
-/* FUNCTION_CALL:
+FUNCTION_CALL:
     IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET {
         singleEntryNode* fn = functionLookup(&gScopeStack, $1);
         if (!fn || fn->varOrFunc != SYMBOL_FUNCTION) {
             reportError(SEMANTIC_ERROR, "Call to undeclared function", @1.first_line);
             $$ = makeTempExpr(INT_TYPE, $1);
-        } else {
-            // optional: check args count/types if you want
-            // emit PARM for each argument in order
+        } 
+        else {
             ArgNode* a = $3;
             while (a) {
                 char* op = exprToOperand(a->expr);
@@ -574,21 +539,23 @@ ASSIGNMENT:
                 free(op);
                 a = a->next;
             }
-
             if (fn->identifierType != VOID_TYPE) {
                 char* t = createTemp();
                 addQuadruple(OP_CALL, $1, NULL, t);
                 $$ = makeTempExpr(fn->identifierType, t);
                 free(t);
-            } else {
+            } 
+            else {
                 addQuadruple(OP_CALL, $1, NULL, NULL);
-                value v; memset(&v, 0, sizeof(v));
+                value v; 
+                memset(&v, 0, sizeof(v));
                 $$ = makeExpr(VOID_TYPE, v, NULL);
             }
         }
-
         freeArgList($3);
     }
+
+    // Error Handling:
     | IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST error {
         reportError(SYNTAX_ERROR, "Expected ')' In Function Call", @4.first_line);
         yyerrok;
@@ -597,41 +564,28 @@ ASSIGNMENT:
         reportError(SYNTAX_ERROR, "Expected '(' In Function Call", @2.first_line);
         yyerrok;
     }
-    ; */
+    ;
 
 IF_STATEMENT:
-    IF_HEAD
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    %prec LOWER_THAN_ELSE
-    {
+      IF_HEAD BLOCK %prec LOWER_THAN_ELSE {
         addQuadruple(OP_LABEL, NULL, NULL, $1.false_label);
         free($1.false_label);
         free($1.end_label);
         $$.code = NULL;
     }
-  | IF_HEAD
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    {
+    | IF_HEAD BLOCK {
         addQuadruple(OP_GOTO, NULL, NULL, $1.end_label);
         addQuadruple(OP_LABEL, NULL, NULL, $1.false_label);
     }
-    ELSE
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    {
+    ELSE BLOCK {
         addQuadruple(OP_LABEL, NULL, NULL, $1.end_label);
         free($1.false_label);
         free($1.end_label);
         $$.code = NULL;
     }
 
-    // Error Handling (kept)
-    | IF LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET {
+    // Error Handling:
+    | IF LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET BLOCK {
         reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'if'", @3.first_line);
         yyerrok;
     }
@@ -643,39 +597,20 @@ IF_STATEMENT:
         reportError(SYNTAX_ERROR, "Expected ')' After Condition", @4.first_line);
         yyerrok;
     }
-    | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'if (condition)'", @5.first_line);
-        yyerrok;
-    }
-    | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close 'if' Block", @7.first_line);
-        yyerrok;
-    }
-    | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET ELSE error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'else'", @8.first_line);
-        yyerrok;
-    }
-    | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET ELSE LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close 'else' Block", @11.first_line);
-        yyerrok;
-    }
     ;
 
 IF_HEAD:
     IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET {
         $$.false_label = createLabel();
-        $$.end_label   = createLabel();
+        $$.end_label = createLabel();
         char* cond = exprToOperand($3);
         addQuadruple(OP_IFFALSE, cond, NULL, $$.false_label);
         free(cond);
     }
-;
+    ;
 
 WHILE_STATEMENT:
-    WHILE_HEAD
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); } {
+    WHILE_HEAD BLOCK {
         pop_loop_labels();
         addQuadruple(OP_GOTO, NULL, NULL, $1.start_label);
         addQuadruple(OP_LABEL, NULL, NULL, $1.end_label);
@@ -685,7 +620,7 @@ WHILE_STATEMENT:
     }
 
     // Error Handling:
-    | WHILE LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET {
+    | WHILE LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET BLOCK {
         reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'while'", @3.first_line);
         yyerrok;
     }
@@ -695,14 +630,6 @@ WHILE_STATEMENT:
     }
     | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
         reportError(SYNTAX_ERROR, "Expected ')' After Condition", @4.first_line);
-        yyerrok;
-    }
-    | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'while (condition)'", @5.first_line);
-        yyerrok;
-    }
-    | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close 'while' Block", @7.first_line);
         yyerrok;
     }
     ;
@@ -715,56 +642,27 @@ WHILE_HEAD:
         char* cond = exprToOperand($3);
         addQuadruple(OP_IFFALSE, cond, NULL, $$.end_label);
         free(cond);
-        // break -> end, continue -> start
         push_loop_labels($$.end_label, $$.start_label);
     }
     ;
 
 REPEAT_STATEMENT:
-    REPEAT_HEAD REPEAT_BLOCK
-    UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET SEMI_COLON
-    {
+    REPEAT_HEAD
+    BLOCK
+    UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET SEMI_COLON {
         pop_loop_labels();
-
         char* cond = exprToOperand($5);
         addQuadruple(OP_IFFALSE, cond, NULL, $1.start_label);
         free(cond);
-
         addQuadruple(OP_LABEL, NULL, NULL, $1.end_label);
-
         free($1.start_label);
         free($1.end_label);
-
         $$.code = NULL;
     }
 
     // Error Handling:
-    | REPEAT error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'repeat'", @2.first_line);
-        yyerrok;
-    }
-    | REPEAT LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close 'repeat' Block", @4.first_line);
-        yyerrok;
-    }
-    | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected 'until' After 'repeat' Block", @5.first_line);
-        yyerrok;
-    }
-    | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'until'", @6.first_line);
-        yyerrok;
-    }
-    | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET SEMI_COLON {
-        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'until'", @7.first_line);
-        yyerrok;
-    }
-    | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
-        reportError(SYNTAX_ERROR, "Expected ')' After Condition", @8.first_line);
-        yyerrok;
-    }
-    | REPEAT LEFT_CURLY_BRACKET STATEMENTS RIGHT_CURLY_BRACKET UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected ';' After 'until (condition)'", @9.first_line);
+    | REPEAT_HEAD BLOCK error {
+        reportError(SYNTAX_ERROR, "Expected 'until (...) ;' After 'repeat' Block", @3.first_line);
         yyerrok;
     }
     ;
@@ -778,43 +676,10 @@ REPEAT_HEAD:
     }
     ;
 
-REPEAT_BLOCK:
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    | LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close 'repeat' Block", @3.first_line);
-        exitScope(&gScopeStack);
-        yyerrok;
-    }
-    ;
-
-/*
-    FIXED FOR-LOOP STEP ORDER (correct runtime order):
-
-        init
-        goto Lcond              // skip step first time
-    Lincr:
-        step                    // emitted by ASSIGNMENT in header
-    Lcond:
-        iffalse cond goto Lend
-        { body }                // has its own scope now
-        goto Lincr
-    Lend:
-
-    - continue jumps to Lincr (so step executes)
-    - break jumps to Lend
-*/
 FOR_STATEMENT:
-    FOR_AFTERSTEP
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    {
+    FOR_HEADER
+    BLOCK {
         pop_loop_labels();
-        // after body -> execute step then loop
         addQuadruple(OP_GOTO, NULL, NULL, $1.incr_label);
         addQuadruple(OP_LABEL, NULL, NULL, $1.end_label);
         free($1.cond_label);
@@ -828,68 +693,30 @@ FOR_STATEMENT:
         reportError(SYNTAX_ERROR, "Expected '(' After 'for'", @2.first_line);
         yyerrok;
     }
-    | FOR LEFT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Invalid 'for' Header", @3.first_line);
-        yyerrok;
-    }
-    | FOR LEFT_ROUND_BRACKET ITERATOR error {
-        reportError(SYNTAX_ERROR, "Expected ';' After For-Initializer", @4.first_line);
-        yyerrok;
-    }
-    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION error {
-        reportError(SYNTAX_ERROR, "Expected ';' After For-Condition", @6.first_line);
-        yyerrok;
-    }
-    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT error {
-        reportError(SYNTAX_ERROR, "Expected ')' After For-Step", @8.first_line);
-        yyerrok;
-    }
-    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' After 'for (...)'", @9.first_line);
-        yyerrok;
-    }
-    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close 'for' Block", @11.first_line);
-        yyerrok;
-    }
     ;
 
-FOR_AFTERSTEP:
-    FOR_SETUP SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT RIGHT_ROUND_BRACKET {
-        $$ = $1;
-        // store/restore is optional now; we can directly use $3
+FOR_HEADER:
+    FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT RIGHT_ROUND_BRACKET {
+        $$.cond_label = createLabel();
+        $$.incr_label = createLabel();
+        $$.end_label  = createLabel();
+        addQuadruple(OP_GOTO, NULL, NULL, $$.cond_label);
+        addQuadruple(OP_LABEL, NULL, NULL, $$.incr_label);
         addQuadruple(OP_LABEL, NULL, NULL, $$.cond_label);
-        char* cond = exprToOperand($3);
+        char* cond = exprToOperand($5);
         addQuadruple(OP_IFFALSE, cond, NULL, $$.end_label);
         free(cond);
-        // break -> end, continue -> incr
         push_loop_labels($$.end_label, $$.incr_label);
     }
     ;
 
-FOR_SETUP:
-    FOR LEFT_ROUND_BRACKET ITERATOR {
-        $$.cond_label = createLabel();
-        $$.incr_label = createLabel();
-        $$.end_label  = createLabel();
-        // skip step on first iteration
-        addQuadruple(OP_GOTO, NULL, NULL, $$.cond_label);
-        // step label: the step ASSIGNMENT quads will be emitted right after this label
-        addQuadruple(OP_LABEL, NULL, NULL, $$.incr_label);
-    }
-    ;
-
-// ITERATOR now REALLY executes semantically (declare/assign)
 ITERATOR:
     IDENTIFIER EQUAL LOGICAL_EXPRESSION {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
-        if (!e) {
-            reportError(SEMANTIC_ERROR, "Identifier is undeclared (for-init)", @1.first_line);
-        } else if (e->isReadOnly) {
-            reportError(SEMANTIC_ERROR, "Cannot assign to const (for-init)", @1.first_line);
-        } else if (!isTypeCompatible(e->identifierType, $3->expressionType)) {
-            /* isTypeCompatible reports */
-        } else {
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared (for-init)", @1.first_line); 
+        else if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot assign to const (for-init)", @1.first_line); 
+        else if (!isTypeCompatible(e->identifierType, $3->expressionType)); // isTypeCompatible reports
+        else {
             char* rhs = exprToOperand($3);
             addQuadruple(OP_ASSN, rhs, NULL, $1);
             free(rhs);
@@ -898,23 +725,17 @@ ITERATOR:
     }
     | DATATYPE IDENTIFIER EQUAL LOGICAL_EXPRESSION {
         type declType = datatypeStringToType($1);
-
         singleEntryNode* already = lookupCurrentScope(&gScopeStack, $2);
-        if (already) {
-            reportError(SEMANTIC_ERROR, "Redeclaration in same scope (for-init)", @2.first_line);
-        } else {
-            if (!isTypeCompatible(declType, $4->expressionType)) {
-                /* isTypeCompatible reports */
-            } else {
+        if (already) reportError(SEMANTIC_ERROR, "Redeclaration in same scope (for-init)", @2.first_line);
+        else {
+            if (!isTypeCompatible(declType, $4->expressionType)); // isTypeCompatible reports
+            else {
                 value initVal = $4->expressionValue;
-
                 singleEntryNode* e = createNewEntry(declType, $2, SYMBOL_VARIABLE, initVal, true, false, NULL);
                 insertInCurrentScope(&gScopeStack, e);
-
                 char* rhs = exprToOperand($4);
                 addQuadruple(OP_ASSN, rhs, NULL, $2);
                 free(rhs);
-
                 updateVariableValueScoped(&gScopeStack, $2, declType, initVal);
             }
         }
@@ -941,58 +762,25 @@ SWITCH_STATEMENT:
         char* sw = exprToOperand($3);
         addQuadruple(OP_ASSN, sw, NULL, t);
         free(sw);
-
         current_switch_var = strdup(t);
         free(t);
-
         current_switch_end_label = createLabel();
         default_label = createLabel();
-
-        // break in switch -> end label
-        push_loop_labels(current_switch_end_label, NULL);
-    }
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }    // switch body has its own scope
-    CASES
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    {
-        // if no default matched, fall here
-        addQuadruple(OP_LABEL, NULL, NULL, default_label);
-        addQuadruple(OP_LABEL, NULL, NULL, current_switch_end_label);
-
-        pop_loop_labels();
-
-        free(current_switch_var); current_switch_var = NULL;
-        free(current_switch_end_label); current_switch_end_label = NULL;
-        free(default_label); default_label = NULL;
-
-        $$.code = NULL;
-    }
-    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET {
-        char* t  = createTemp();
-        char* sw = exprToOperand($3);
-        addQuadruple(OP_ASSN, sw, NULL, t);
-        free(sw);
-
-        current_switch_var = strdup(t);
-        free(t);
-
-        current_switch_end_label = createLabel();
-        default_label = createLabel();
-
         push_loop_labels(current_switch_end_label, NULL);
     }
     LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    CASES DEFAULT_CASE
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    {
+    CASES
+    DEFAULT_CASE_OPT
+    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); } {
+        addQuadruple(OP_LABEL, NULL, NULL, default_label);
         addQuadruple(OP_LABEL, NULL, NULL, current_switch_end_label);
-
         pop_loop_labels();
-
-        free(current_switch_var); current_switch_var = NULL;
-        free(current_switch_end_label); current_switch_end_label = NULL;
-        free(default_label); default_label = NULL;
-
+        free(current_switch_var); 
+        current_switch_var = NULL;
+        free(current_switch_end_label); 
+        current_switch_end_label = NULL;
+        free(default_label); 
+        default_label = NULL;
         $$.code = NULL;
     }
 
@@ -1001,30 +789,11 @@ SWITCH_STATEMENT:
         reportError(SYNTAX_ERROR, "Expected '(' After 'switch'", @2.first_line);
         yyerrok;
     }
-    | SWITCH LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )' After 'switch'", @3.first_line);
-        yyerrok;
-    }
-    | SWITCH LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES DEFAULT_CASE RIGHT_CURLY_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )' After 'switch'", @3.first_line);
-        yyerrok;
-    }
-    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
-        reportError(SYNTAX_ERROR, "Expected ')' After Switch Expression", @4.first_line);
-        yyerrok;
-    }
-    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' To Start Switch Body", @5.first_line);
-        yyerrok;
-    }
-    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close Switch Body", @7.first_line);
-        yyerrok;
-    }
-    | SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET CASES DEFAULT_CASE error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close Switch Body", @8.first_line);
-        yyerrok;
-    }
+    ;
+
+DEFAULT_CASE_OPT:
+    /* EMPTY */ { $$ = NULL; }
+    | DEFAULT_CASE
     ;
 
 CASES:
@@ -1035,28 +804,21 @@ CASES:
 SINGLE_CASE:
     CASE PRIMARY_CASE {
         current_case_next_label = createLabel();
-
-        if (!current_switch_var) {
-            reportError(SEMANTIC_ERROR, "case used outside switch", @1.first_line);
-        } else {
+        if (!current_switch_var) reportError(SEMANTIC_ERROR, "case used outside switch", @1.first_line);
+        else {
             char* caseOp = exprToOperand($2);
             char* tcmp   = createTemp();
-
             addQuadruple(OP_EQ, current_switch_var, caseOp, tcmp);
             addQuadruple(OP_IFFALSE, tcmp, NULL, current_case_next_label);
-
             free(caseOp);
             free(tcmp);
         }
     }
     COLON STATEMENTS {
-        // prevent fall-through
         if (current_switch_end_label) addQuadruple(OP_GOTO, NULL, NULL, current_switch_end_label);
-
         addQuadruple(OP_LABEL, NULL, NULL, current_case_next_label);
         free(current_case_next_label);
         current_case_next_label = NULL;
-
         $$ = NULL;
     }
 
@@ -1089,17 +851,20 @@ DEFAULT_CASE:
 
 PRIMARY_CASE:
     INTVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.INT_Data = $1;
         $$ = makeExpr(INT_TYPE, v, NULL);
     }
     | CHARVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.CHAR_Data = $1;
         $$ = makeExpr(CHAR_TYPE, v, NULL);
     }
     | BOOLVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.BOOL_Data = $1;
         $$ = makeExpr(BOOL_TYPE, v, NULL);
     }
@@ -1107,19 +872,21 @@ PRIMARY_CASE:
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
         if (!e) {
             reportError(SEMANTIC_ERROR, "Use of undeclared identifier in case", @1.first_line);
-            value v; memset(&v, 0, sizeof(v));
+            value v; 
+            memset(&v, 0, sizeof(v));
             $$ = makeExpr(INT_TYPE, v, $1);
-        } else {
-            $$ = makeExpr(e->identifierType, e->currentValue, $1);
-        }
+        } 
+        else $$ = makeExpr(e->identifierType, e->currentValue, $1);
     }
     | FLOATVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.FLOAT_Data = $1;
         $$ = makeExpr(FLOAT_TYPE, v, NULL);
     }
     | STRINGVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.STRING_Data = strdup($1);
         $$ = makeExpr(STRING_TYPE, v, NULL);
     }
@@ -1127,17 +894,12 @@ PRIMARY_CASE:
 
 RETURN_STATEMENT:
     RETURN {
-        if (current_function_return_type != VOID_TYPE) {
-            reportError(SEMANTIC_ERROR, "Missing return value", @1.first_line);
-        }
+        if (current_function_return_type != VOID_TYPE) reportError(SEMANTIC_ERROR, "Missing return value", @1.first_line);
         addQuadruple(OP_RETURN, NULL, NULL, NULL);
     }
     | RETURN LOGICAL_EXPRESSION {
-        if (current_function_return_type == VOID_TYPE) {
-            reportError(SEMANTIC_ERROR, "Returning a value from void function", @1.first_line);
-        } else if ($2 && !isTypeCompatible(current_function_return_type, $2->expressionType)) {
-            /* isTypeCompatible reports */
-        }
+        if (current_function_return_type == VOID_TYPE) reportError(SEMANTIC_ERROR, "Returning a value from void function", @1.first_line);
+        else if ($2 && !isTypeCompatible(current_function_return_type, $2->expressionType)); // isTypeCompatible reports
         char* rv = exprToOperand($2);
         addQuadruple(OP_RETURN, rv, NULL, NULL);
         free(rv);
@@ -1147,31 +909,24 @@ RETURN_STATEMENT:
 FUNCTION_DEFINITION_IMPLEMENTATION:
     FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST RIGHT_ROUND_BRACKET {
         type retType = datatypeStringToType($2);
-
-        // functions must be global (your insertInCurrentScope enforces it)
         singleEntryNode* already = lookupCurrentScope(&gScopeStack, $3);
-        if (already) {
-            reportError(SEMANTIC_ERROR, "Redeclaration of function in same scope", @3.first_line);
-        } else {
-            value v; memset(&v, 0, sizeof(v));
+        if (already) reportError(SEMANTIC_ERROR, "Redeclaration of function in same scope", @3.first_line);
+        else {
+            value v; 
+            memset(&v, 0, sizeof(v));
             singleEntryNode* fn = createNewEntry(retType, $3, SYMBOL_FUNCTION, v, true, false, $5);
             insertInCurrentScope(&gScopeStack, fn);
         }
-
         current_function_return_type = retType;
-
-        // enter function scope (params + locals)
         enterScope(&gScopeStack);
-
-        // insert params as variables in function scope
         Parameter* p = $5;
         while (p) {
             if (p->Name) {
                 singleEntryNode* a = lookupCurrentScope(&gScopeStack, p->Name);
-                if (a) {
-                    reportError(SEMANTIC_ERROR, "Duplicate parameter name", @3.first_line);
-                } else {
-                    value pv; memset(&pv, 0, sizeof(pv));
+                if (a) reportError(SEMANTIC_ERROR, "Duplicate parameter name", @3.first_line);
+                else {
+                    value pv; 
+                    memset(&pv, 0, sizeof(pv));
                     singleEntryNode* pe = createNewEntry(p->Type, p->Name, SYMBOL_VARIABLE, pv, false, false, NULL);
                     insertInCurrentScope(&gScopeStack, pe);
                 }
@@ -1179,15 +934,9 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
             p = p->Next;
         }
     }
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }    // function body braces introduce their own scope
-    STATEMENTS
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); }
-    {
-        // exit function scope (params scope)
+    BLOCK {
         exitScope(&gScopeStack);
         current_function_return_type = VOID_TYPE;
-
-        // IMPORTANT: do NOT free $5 here, because the symbol table entry owns it and will free it in freeEntry().
     }
 
     // Error Handling:
@@ -1205,14 +954,6 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
     }
     | FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST error {
         reportError(SYNTAX_ERROR, "Expected ')' After Parameters", @6.first_line);
-        yyerrok;
-    }
-    | FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST RIGHT_ROUND_BRACKET error {
-        reportError(SYNTAX_ERROR, "Expected '{' To Start Function Body", @7.first_line);
-        yyerrok;
-    }
-    | FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST RIGHT_ROUND_BRACKET LEFT_CURLY_BRACKET STATEMENTS error {
-        reportError(SYNTAX_ERROR, "Expected '}' To Close Function Body", @9.first_line);
         yyerrok;
     }
     ;
@@ -1280,7 +1021,7 @@ LOGICAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_OR, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1304,7 +1045,7 @@ LOGICAL_TERM:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_AND, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1328,7 +1069,7 @@ EQUALITY_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_EQ, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1338,7 +1079,7 @@ EQUALITY_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_NEQ, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1370,7 +1111,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_LT, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1380,7 +1121,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_GT, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1390,7 +1131,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_LTE, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1400,7 +1141,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_GTE, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1449,7 +1190,7 @@ ADDITIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_ADD, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1460,7 +1201,7 @@ ADDITIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_SUB, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1489,7 +1230,7 @@ MULTIPLICATIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_MUL, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1500,7 +1241,7 @@ MULTIPLICATIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_DIV, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1510,7 +1251,7 @@ MULTIPLICATIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_MOD, a1, a2, t);
-        free(a1);
+        free(a1); 
         free(a2);
         $$ = makeTempExpr(INT_TYPE, t);
         free(t);
@@ -1547,19 +1288,15 @@ MULTIPLICATIVE_EXPRESSION:
 EXPONENT_EXPRESSION:
     EXPONENT_EXPRESSION POWER UNARY_EXPRESSION {
         type resultType = (($1 && $1->expressionType == FLOAT_TYPE) || ($3 && $3->expressionType == FLOAT_TYPE)) ? FLOAT_TYPE : INT_TYPE;
-
         char* a1 = exprToOperand($1);
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
-
         addQuadruple(OP_EXP, a1, a2, t);
-
         value v;
         memset(&v, 0, sizeof(v));
         $$ = makeExpr(resultType, v, t);
-
-        free(a1);
-        free(a2);
+        free(a1); 
+        free(a2); 
         free(t);
     }
     | UNARY_EXPRESSION { $$ = $1; }
@@ -1607,27 +1344,32 @@ UNARY_EXPRESSION:
 
 PRIMARY_EXPRESSION:
     INTVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.INT_Data = $1;
         $$ = makeExpr(INT_TYPE, v, NULL);
     }
     | FLOATVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.FLOAT_Data = $1;
         $$ = makeExpr(FLOAT_TYPE, v, NULL);
     }
     | CHARVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.CHAR_Data = $1;
         $$ = makeExpr(CHAR_TYPE, v, NULL);
     }
     | BOOLVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.BOOL_Data = $1;
         $$ = makeExpr(BOOL_TYPE, v, NULL);
     }
     | STRINGVALUE {
-        value v; memset(&v, 0, sizeof(v));
+        value v; 
+        memset(&v, 0, sizeof(v));
         v.STRING_Data = strdup($1);
         $$ = makeExpr(STRING_TYPE, v, NULL);
     }
@@ -1635,13 +1377,13 @@ PRIMARY_EXPRESSION:
         $$ = $2;
     }
     | IDENTIFIER PRIMARY_SUFFIX {
-        // if suffix has args => function call expression
         if ($2 != NULL) {
             singleEntryNode* fn = functionLookup(&gScopeStack, $1);
             if (!fn || fn->varOrFunc != SYMBOL_FUNCTION) {
                 reportError(SEMANTIC_ERROR, "Call to undeclared function", @1.first_line);
                 $$ = makeTempExpr(INT_TYPE, $1);
-            } else {
+            } 
+            else {
                 ArgNode* a = $2;
                 while (a) {
                     char* op = exprToOperand(a->expr);
@@ -1649,33 +1391,34 @@ PRIMARY_EXPRESSION:
                     free(op);
                     a = a->next;
                 }
-
                 if (fn->identifierType != VOID_TYPE) {
                     char* t = createTemp();
                     addQuadruple(OP_CALL, $1, NULL, t);
                     $$ = makeTempExpr(fn->identifierType, t);
                     free(t);
-                } else {
+                } 
+                else {
                     addQuadruple(OP_CALL, $1, NULL, NULL);
-                    value v; memset(&v, 0, sizeof(v));
+                    value v; 
+                    memset(&v, 0, sizeof(v));
                     $$ = makeExpr(VOID_TYPE, v, NULL);
                 }
             }
             freeArgList($2);
-        } else {
-            // normal variable
+        } 
+        else {
             singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
             if (!e) {
                 reportError(SEMANTIC_ERROR, "Use of undeclared identifier", @1.first_line);
-                value v; memset(&v, 0, sizeof(v));
+                value v; 
+                memset(&v, 0, sizeof(v));
                 $$ = makeExpr(INT_TYPE, v, $1);
-            } else {
-                $$ = makeExpr(e->identifierType, e->currentValue, $1);
-            }
+            } 
+            else $$ = makeExpr(e->identifierType, e->currentValue, $1);
         }
     }
 
-    // Error handling:
+    // Error Handling:
     | LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET {
         reportError(SYNTAX_ERROR, "Expected Expression Inside '( )'", @2.first_line);
         yyerrok;
@@ -1706,23 +1449,17 @@ int main(int argc , char** argv) {
         }
     }
     else yyin = stdin;
-
     scopeStackInit(&gScopeStack);
     enterScope(&gScopeStack); // global scope
-
     int parseResult = yyparse();
-
     printQuadruplesToFile("exe/quadruples.txt");
     dumpScopeStackToFile(&gScopeStack, "exe/symbol_table.txt");
     quadruplesToAssembly("exe/output.asm");
-
     exitScope(&gScopeStack);
-
     int errorCount = getErrorCount();
     if (errorCount){
         printf("\n%d Errors:\n", errorCount);
         printErrors();
     }
-
     return (parseResult == 0 && getErrorCount() == 0) ? 0 : 1;
 }
