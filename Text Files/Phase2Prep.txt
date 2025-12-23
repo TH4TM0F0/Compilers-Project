@@ -1,4 +1,0 @@
-while writing the grammar rules i wanted to separate some of the rules by group
-group of statements that can exist everywhere 
-group that can exist in loops only like (continue & break)
-and so on however they should be handled semantically because syntycally they are not wrong however they have no meaning.
