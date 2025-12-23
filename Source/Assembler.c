@@ -163,18 +163,30 @@ void quadruplesToAssembly (const char *filename) {
                 fprintf(file, "ITOF %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
-            case OP_FTOI:
-                fprintf(file, "FTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
-                break;
-
-            case OP_CTOI:
-                fprintf(file, "CTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
-                break;
-
             case OP_ITOB:
                 fprintf(file, "ITOB %s, %s\n", removeNone(Result), removeNone(Argument1));
                 break;
 
+            case OP_FTOI:
+                fprintf(file, "FTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
+                break;
+
+            case OP_FTOB:
+                fprintf(file, "FTOB %s, %s\n", removeNone(Result), removeNone(Argument1));
+                break;
+
+            case OP_BTOI:
+                fprintf(file, "BTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
+                break;
+                
+            case OP_BTOF:
+                fprintf(file, "BTOF %s, %s\n", removeNone(Result), removeNone(Argument1));
+                break;
+
+            // case OP_CTOI:
+            //     fprintf(file, "CTOI %s, %s\n", removeNone(Result), removeNone(Argument1));
+            //     break;
+            
             // Anomaly Operator:
             default:
                 fprintf(file, ";\n");

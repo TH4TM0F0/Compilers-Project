@@ -58,9 +58,12 @@ typedef enum {
     // Type Conversion Operator(s):
 
     OP_ITOF, // Convert Integer To Float [INT_TO_FLOAT]
+    OP_ITOB, // Convert Integer To Boolean [INT_TO_BOOL]
     OP_FTOI, // Convert Float To Integer [FLOAT_TO_INT]
-    OP_CTOI, // Convert Character To Integer (ASCII) [CHAR_TO_INT]
-    OP_ITOB // Convert Integer to Boolean [INT_TO_BOOL]
+    OP_FTOB, // Convert Float To Boolean [FLOAT_TO_BOOL]
+    /* OP_CTOI, // Convert Character To Integer (ASCII) [CHAR_TO_INT] */
+    OP_BTOI, // Convert Boolean To Integer [BOOL_TO_INT]
+    OP_BTOF // Convert Boolean To Float [BOOL_TO_FLOAT]
 
 } Quad_Op;
 

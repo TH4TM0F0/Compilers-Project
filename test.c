@@ -3,7 +3,7 @@
 #include <math.h>
 #include <string.h>
 
-int add(int x , int y) { return x + y; }
+
 
 int main()
 {
@@ -35,11 +35,14 @@ int main()
         
         
     char aaaa = '\t';
-    printf("%d" , (int)strlen("\t"));
+    //printf("%d" , (int)strlen("\t"));
 
-
-
-    
+    int x = 3.5;
+    float a = true;
+    bool b = -0.5;
+    printf("%d" , b);
+    //printf("%f" , a);   
+    //printf("%f" , 3);
 
     //printf("%d" , add);
 
@@ -51,5 +54,4 @@ int main()
 
     // printf("%s", test);
     return 0;
-
 }

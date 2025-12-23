@@ -11,7 +11,7 @@ EXE = "./exe/compiler.exe"
 DEFAULT_FILE = "Text Files/input.txt"
 
 QUADS_TXT = "exe/quadruples.txt"
-SYMTAB_TXT = "exe/symbol_table.txt"
+SYMTAB_TXT = "exe/scopes_logs.txt"
 ASM_TXT = "exe/output.asm"
 # ----------------------------------------
 
@@ -51,28 +51,59 @@ def _write_text_file(path: str, content: str):
         f.write(content)
 
 
-def _split_stdout_into_console_and_errors(stdout: str):
+def _split_stdout_into_console_errors_warnings(stdout: str):
     """
-    Your compiler prints errors like:
-        "\n1 Errors:\n"
-        "[Semantic Error] Line 1: ....\n"
-        ...
-    We'll split:
-      - console_out: everything before the "N Errors:" block
-      - errors_out: that block (including the header)
-    If not found -> errors_out=""
+    Your compiler prints blocks like:
+        "\nN Errors:\n"
+        "... error lines ..."
+
+        "\nM Warnings:\n"
+        "... warning lines ..."
+
+    We'll split into:
+      - console_out: everything before the first Errors/Warnings block
+      - errors_out: the Errors block (including its header), if any
+      - warnings_out: the Warnings block (including its header), if any
     """
     if not stdout:
-        return "", ""
+        return "", "", ""
 
-    # match e.g. "\n1 Errors:\n" or "12 Errors:\n"
-    m = re.search(r"\n\d+\s+Errors:\s*\n", stdout)
-    if not m:
-        return stdout, ""
+    err_m = re.search(r"\n\d+\s+Errors:\s*\n", stdout)
+    warn_m = re.search(r"\n\d+\s+Warnings:\s*\n", stdout)
 
-    console_out = stdout[:m.start()].rstrip()
-    errors_out = stdout[m.start():].lstrip("\n")
-    return console_out, errors_out
+    if not err_m and not warn_m:
+        return stdout, "", ""
+
+    starts = []
+    if err_m:
+        starts.append(("err", err_m.start()))
+    if warn_m:
+        starts.append(("warn", warn_m.start()))
+    starts.sort(key=lambda x: x[1])
+
+    first_kind, first_pos = starts[0]
+    console_out = stdout[:first_pos].rstrip()
+
+    errors_out = ""
+    warnings_out = ""
+
+    def slice_block(start_pos, next_pos):
+        return stdout[start_pos:next_pos].lstrip("\n").rstrip() + "\n"
+
+    if err_m and warn_m:
+        if err_m.start() < warn_m.start():
+            errors_out = slice_block(err_m.start(), warn_m.start())
+            warnings_out = slice_block(warn_m.start(), len(stdout))
+        else:
+            warnings_out = slice_block(warn_m.start(), err_m.start())
+            errors_out = slice_block(err_m.start(), len(stdout))
+    else:
+        if err_m:
+            errors_out = slice_block(err_m.start(), len(stdout))
+        if warn_m:
+            warnings_out = slice_block(warn_m.start(), len(stdout))
+
+    return console_out, errors_out, warnings_out
 
 
 ERROR_LINE_RE = re.compile(r"\bLine\s+(\d+)\b")
@@ -191,7 +222,6 @@ class LineNumberedEditor(tk.Frame):
         self._highlight_current_line()
 
     def apply_syntax_highlighting(self):
-        # clear old tags
         for tag in ("kw", "string", "number", "comment"):
             self.text.tag_remove(tag, "1.0", "end")
 
@@ -199,26 +229,21 @@ class LineNumberedEditor(tk.Frame):
         if not content:
             return
 
-        # comments: // ... (single line)
         for m in re.finditer(r"//.*?$", content, re.MULTILINE):
             start = f"1.0+{m.start()}c"
             end = f"1.0+{m.end()}c"
             self.text.tag_add("comment", start, end)
 
-        # strings: " ... "
         for m in re.finditer(r"\"([^\"\\]|\\.)*\"", content):
             start = f"1.0+{m.start()}c"
             end = f"1.0+{m.end()}c"
             self.text.tag_add("string", start, end)
 
-        # numbers
         for m in re.finditer(r"\b\d+(\.\d+)?\b", content):
             start = f"1.0+{m.start()}c"
             end = f"1.0+{m.end()}c"
             self.text.tag_add("number", start, end)
 
-        # keywords (word-boundary)
-        # avoid tagging inside comments/strings by simply tagging anyway (good enough for now)
         for kw in sorted(self.KEYWORDS, key=len, reverse=True):
             for m in re.finditer(rf"\b{re.escape(kw)}\b", content):
                 start = f"1.0+{m.start()}c"
@@ -256,6 +281,10 @@ class CompilerGUI(tk.Tk):
         self.btn_errors = self._btn(self.toolbar, "Errors", lambda: self.select_tab("errors"))
         self.btn_errors.pack(side="left", padx=6, pady=6)
 
+        # NEW: Warnings button
+        self.btn_warnings = self._btn(self.toolbar, "Warnings", lambda: self.select_tab("warnings"))
+        self.btn_warnings.pack(side="left", padx=6, pady=6)
+
         self.btn_quads = self._btn(self.toolbar, "Quadruples", lambda: self.select_tab("quads"))
         self.btn_quads.pack(side="left", padx=6, pady=6)
 
@@ -284,7 +313,7 @@ class CompilerGUI(tk.Tk):
         self.nb.pack(fill="both", expand=True, padx=8, pady=8)
         self.paned.add(self.right_frame, weight=2)
 
-        # Notebook tab frames (IMPORTANT: store the exact frames added!)
+        # Notebook tab frames
         self.tab_frames = {}
         self.tab_frames["console"] = self._make_tab("Console")
         self.console_text = self._make_output_text(self.tab_frames["console"])
@@ -292,6 +321,12 @@ class CompilerGUI(tk.Tk):
         self.tab_frames["errors"] = self._make_tab("Errors")
         self.errors_text = self._make_output_text(self.tab_frames["errors"])
         self._setup_clickable_errors()
+
+        # NEW: Warnings tab
+        self.tab_frames["warnings"] = self._make_tab("Warnings")
+        self.warnings_text = self._make_output_text(self.tab_frames["warnings"])
+        self.warnings_text.tag_configure("warnline", foreground=COL_WARN, underline=True)
+        self.warnings_text.tag_configure("warnhdr", foreground=COL_WARN, font=FONT_MONO)
 
         self.tab_frames["quads"] = self._make_tab("Quadruples")
         self.quads_text = self._make_output_text(self.tab_frames["quads"])
@@ -395,7 +430,8 @@ class CompilerGUI(tk.Tk):
         return subprocess.run([EXE, temp_file], text=True, capture_output=True)
 
     def _clear_outputs(self):
-        for w in (self.console_text, self.errors_text, self.quads_text, self.symtab_text, self.asm_text, self.stderr_text):
+        for w in (self.console_text, self.errors_text, self.warnings_text,
+                  self.quads_text, self.symtab_text, self.asm_text, self.stderr_text):
             w.delete("1.0", "end")
 
     def run_and_refresh(self):
@@ -409,8 +445,8 @@ class CompilerGUI(tk.Tk):
             self._set_status("Run failed", "err")
             return
 
-        # Split stdout into console + errors (so Console is clean)
-        console_out, errors_out = _split_stdout_into_console_and_errors(p.stdout or "")
+        # Split stdout into console + errors + warnings
+        console_out, errors_out, warnings_out = _split_stdout_into_console_errors_warnings(p.stdout or "")
 
         if console_out.strip():
             self.console_text.insert("1.0", console_out.strip() + "\n")
@@ -422,23 +458,30 @@ class CompilerGUI(tk.Tk):
         else:
             self.errors_text.insert("1.0", "(no errors)\n")
 
+        if warnings_out.strip():
+            self.warnings_text.insert("1.0", warnings_out.strip() + "\n")
+            self._tag_warning_lines()
+        else:
+            self.warnings_text.insert("1.0", "(no warnings)\n")
+
         if (p.stderr or "").strip():
             self.stderr_text.insert("1.0", p.stderr.strip() + "\n")
         else:
             self.stderr_text.insert("1.0", "(empty)\n")
 
-        # Load artifacts produced by your compiler main:
+        # Load artifacts
         self._load_artifact_into(self.quads_text, QUADS_TXT, "(quadruples file not found)")
         self._load_artifact_into(self.symtab_text, SYMTAB_TXT, "(symbol table file not found)")
         self._load_artifact_into(self.asm_text, ASM_TXT, "(assembly file not found)")
 
         # Choose default tab after run:
-        # - if errors exist, go to Errors
-        # - else go to Console
         if errors_out.strip():
             self.select_tab("errors")
             self._tag_error_lines()
             self._set_status("Finished with errors", "err")
+        elif warnings_out.strip():
+            self.select_tab("warnings")
+            self._set_status("Finished with warnings", "warn")
         else:
             self.select_tab("console")
             self._set_status("Finished successfully", "ok")
@@ -485,16 +528,11 @@ class CompilerGUI(tk.Tk):
 
     # ---------- Clickable error lines ----------
     def _setup_clickable_errors(self):
-        # configure tags
         self.errors_text.tag_configure("errline", foreground=COL_ERROR, underline=True)
         self.errors_text.tag_configure("errhdr", foreground=COL_WARN, font=FONT_MONO)
-
         self.errors_text.bind("<Button-1>", self._on_errors_click)
 
     def _tag_error_lines(self):
-        """
-        Find all occurrences of "Line N" in the Errors tab and tag the whole line clickable.
-        """
         self.errors_text.tag_remove("errline", "1.0", "end")
         self.errors_text.tag_remove("errhdr", "1.0", "end")
 
@@ -502,13 +540,11 @@ class CompilerGUI(tk.Tk):
         if not text:
             return
 
-        # highlight header like "1 Errors:"
         for m in re.finditer(r"^\d+\s+Errors:\s*$", text, re.MULTILINE):
             s = f"1.0+{m.start()}c"
             e = f"1.0+{m.end()}c"
             self.errors_text.tag_add("errhdr", s, e)
 
-        # tag lines containing "Line N"
         for m in ERROR_LINE_RE.finditer(text):
             pos = m.start()
             idx = f"1.0+{pos}c"
@@ -516,14 +552,34 @@ class CompilerGUI(tk.Tk):
             line_end = self.errors_text.index(f"{idx} lineend")
             self.errors_text.tag_add("errline", line_start, line_end)
 
+    def _tag_warning_lines(self):
+        self.warnings_text.tag_remove("warnline", "1.0", "end")
+        self.warnings_text.tag_remove("warnhdr", "1.0", "end")
+
+        text = self.warnings_text.get("1.0", "end-1c")
+        if not text:
+            return
+
+        for m in re.finditer(r"^\d+\s+Warnings:\s*$", text, re.MULTILINE):
+            s = f"1.0+{m.start()}c"
+            e = f"1.0+{m.end()}c"
+            self.warnings_text.tag_add("warnhdr", s, e)
+
+        lines = text.splitlines()
+        idx = 1
+        for line in lines:
+            line_start = f"{idx}.0"
+            line_end = f"{idx}.0 lineend"
+            if line.strip() and not re.match(r"^\d+\s+Warnings:\s*$", line.strip()):
+                self.warnings_text.tag_add("warnline", line_start, line_end)
+            idx += 1
+
     def _on_errors_click(self, event):
-        # identify clicked index, check if it's on errline
         idx = self.errors_text.index(f"@{event.x},{event.y}")
         tags = self.errors_text.tag_names(idx)
         if "errline" not in tags:
             return
 
-        # get clicked line text
         line_start = self.errors_text.index(f"{idx} linestart")
         line_end = self.errors_text.index(f"{idx} lineend")
         line_text = self.errors_text.get(line_start, line_end)
@@ -533,12 +589,8 @@ class CompilerGUI(tk.Tk):
             return
         line_no = int(m.group(1))
 
-        # jump to line in editor
         self.editor.goto_line(line_no)
-
-        # also switch focus to editor
         self.select_tab("errors")  # keep errors visible
-        # (If you prefer switching to console/editor, tell me and I’ll change it)
 
 
 if __name__ == "__main__":

@@ -60,99 +60,59 @@ const char* valueToString(type t, value v)
     return buffer;
 }
 
+static bool isNumericType(type t) 
+{ 
+        return t == INT_TYPE || t == FLOAT_TYPE || t == BOOL_TYPE;
+}
 
-
-bool isTypeCompatible(type lhsType , type rhsType)
+bool isTypeCompatible(type lhsType, type rhsType)
 {
     char buffer[512] = "\0";
 
-    switch (lhsType)
+    if (isNumericType(lhsType) && isNumericType(rhsType)) 
     {
-    case INT_TYPE:
-        if (rhsType == INT_TYPE || rhsType == FLOAT_TYPE)
-        {
-            return true;
-        }
-        else
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {int}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case FLOAT_TYPE:
-        if (rhsType == INT_TYPE || rhsType == FLOAT_TYPE)
-        {
-            return true;
-        }
-        else
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {float}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case CHAR_TYPE:
-        if (rhsType == CHAR_TYPE)
-        {
-            return true;
-        }
-        else 
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {char}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case BOOL_TYPE:
-        if (rhsType == BOOL_TYPE)
-        {
-            return true;
-        }
-        else 
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {bool}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case STRING_TYPE:
-        if (rhsType == STRING_TYPE)
-        {
-            return true;
-        }
-        else 
-        {
-            strcat(buffer , "Type miss-match, attempt to assign ");
-            strcat(buffer , typeToString(rhsType));
-            strcat(buffer , " data into a variable of type {string}.\n");
-            reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-            return false;
-        }
-        break;
-    case VOID_TYPE:
-        strcat(buffer , "Void Data is not assignable\n");
-        reportError(SEMANTIC_ERROR , buffer , previousValidLine);
-        return false;
-        break;
-    default:
-    return false;
-        break;
+        return true;
     }
-    return false;
-}
 
-static bool isNumericType(type t) 
-{
-    return t == INT_TYPE || t == FLOAT_TYPE || t == BOOL_TYPE;
+    if (lhsType == CHAR_TYPE) 
+    {
+        if (rhsType == CHAR_TYPE) 
+        {
+            return true;
+        }
+
+        strcat(buffer, "Type mismatch: char cannot take ");
+        strcat(buffer, typeToString(rhsType));
+        reportError(SEMANTIC_ERROR, buffer, previousValidLine);
+        return false;
+    }
+
+    if (lhsType == STRING_TYPE) 
+    {
+        if (rhsType == STRING_TYPE) 
+        {
+            return true;
+        }
+
+        strcat(buffer, "Type mismatch: string cannot take ");
+        strcat(buffer, typeToString(rhsType));
+        reportError(SEMANTIC_ERROR, buffer, previousValidLine);
+        return false;
+    }
+
+    if (lhsType == VOID_TYPE) 
+    {
+        reportError(SEMANTIC_ERROR, "Void data is not assignable", previousValidLine);
+        return false;
+    }
+
+    // For anything else:
+    strcat(buffer, "Type mismatch: cannot assign ");
+    strcat(buffer, typeToString(rhsType));
+    strcat(buffer, " to ");
+    strcat(buffer, typeToString(lhsType));
+    reportError(SEMANTIC_ERROR, buffer, previousValidLine);
+    return false;
 }
 
 char** split(const char* str, const char* delimiter, int* count) {

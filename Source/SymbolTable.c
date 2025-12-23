@@ -1,5 +1,6 @@
 #include "SymbolTable.h"
 #include "ErrorHandler.h"
+#include "WarningHandler.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -21,6 +22,68 @@ static unsigned long long hashIdentifier(const char* key)
 static unsigned int getBucketIndex(const char* identifier)
 {
     return (unsigned int)(hashIdentifier(identifier) % TABLE_SIZE);
+}
+
+void initScopeLogFile(const char* filename)
+{
+    FILE* f = fopen(filename, "w");   // overwrite once
+    if (!f) return;
+
+    fprintf(f, "=== Symbol Tables Scope Log ===\n");
+    fprintf(f, "(Each scope is dumped at the moment it exits)\n\n");
+    fclose(f);
+}
+
+static void dumpOneScopeToLogFile(scope* sc, const char* filename, const char* reason)
+{
+    FILE* f = fopen(filename, "a");   
+    if (!f || !sc) return;
+
+    fprintf(f, "----------------------------------------\n");
+    fprintf(f, "SCOPE DUMP (%s)\n", reason ? reason : "EVENT");
+    fprintf(f, "Depth: %d\n", sc->scopeDepth);
+    fprintf(f, "----------------------------------------\n");
+
+    int printedAny = 0;
+
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        singleEntryNode* node = sc->table.buckets[i];
+        while (node)
+        {
+            printedAny = 1;
+
+            fprintf(f,
+                "Name = %s | Kind = %s | Type = %s | Init = %d | Const = %d | Used = %d",
+                node->identifierName ? node->identifierName : "NULL",
+                (node->varOrFunc == SYMBOL_FUNCTION) ? "FUNCTION" : "VARIABLE",
+                typeToString(node->identifierType),
+                node->isInitialised ? 1 : 0,
+                node->isReadOnly ? 1 : 0,
+                node->isUsed ? 1 : 0
+            );
+
+            if (node->isInitialised && node->varOrFunc == SYMBOL_VARIABLE)
+            {
+                fprintf(f, " | Current Value = %s\n",
+                        valueToString(node->identifierType, node->currentValue));
+            }
+            else
+            {
+                fprintf(f, "\n");
+            }
+
+            node = node->nextEntry;
+        }
+    }
+
+    if (!printedAny)
+    {
+        fprintf(f, "(empty)\n");
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
 }
 
 singleEntryNode* createNewEntry(type identifierType , const char* identifierName , variableORfunction varOrFunc , value currentValue , bool isInitialised , bool isReadOnly , Parameter* parameterList)
@@ -271,6 +334,7 @@ void freeSymbolTable(symbolTable* symTable)
 
     singleEntryNode* tempNode;
     singleEntryNode* next;
+    char buffer[512] = "\0";
     for (unsigned int i = 0; i < TABLE_SIZE; i++)
     {
         tempNode = symTable->buckets[i];
@@ -279,8 +343,39 @@ void freeSymbolTable(symbolTable* symTable)
             continue;
         }
         next = tempNode->nextEntry;
+        if (!tempNode->isUsed)
+        {
+            if (tempNode->varOrFunc == SYMBOL_VARIABLE)
+            {
+                buffer[0] = '\0';
+                strcat(buffer, "Variable (");
+                strcat(buffer, tempNode->identifierName);
+                strcat(buffer, ") declared but never used.");
+                reportWarning(UNUSED_VARIABLE , buffer);
+            }
+            else if (tempNode->varOrFunc == SYMBOL_FUNCTION)
+            {
+                buffer[0] = '\0';
+                strcat(buffer, "Function (");
+                strcat(buffer, tempNode->identifierName);
+                strcat(buffer, ") declared but never used.");
+                reportWarning(UNUSED_FUNCTION , buffer);
+            }
+        }
+
         while (next != NULL)
         {
+            if (!next->isUsed)
+            {
+                if (next->varOrFunc == SYMBOL_VARIABLE)
+                {
+                    reportWarning(UNUSED_VARIABLE , "Warning: Identifier declared but never used.");
+                }
+                else if (next->varOrFunc == SYMBOL_FUNCTION)
+                {
+                    reportWarning(UNUSED_FUNCTION , "Warning: Identifier declared but never used.");
+                }
+            }
             freeEntry(tempNode);
             tempNode = next;
             next = next->nextEntry;
@@ -290,39 +385,7 @@ void freeSymbolTable(symbolTable* symTable)
     }
 }
 
-void printTable(symbolTable* symTable)
-{
-    FILE* symbolTableOutput;
-    symbolTableOutput = fopen("Symbol_Table.txt" , "w");
-    if (symbolTableOutput == NULL)
-    {
-        perror("Failed to open the symbol table's text file.");
-        return;
-    }
 
-    fprintf(symbolTableOutput , "========== Symbol Table ==========\n\n");
-
-    if (symTable == NULL)
-    {
-        fprintf(symbolTableOutput , "Empty Table");
-        return;
-    }
-
-    singleEntryNode* tempNode;
-    for (unsigned int i = 0; i < TABLE_SIZE; i++)
-    {
-        tempNode = symTable->buckets[i];
-        if (tempNode == NULL)
-        {
-            continue;
-        }
-        
-        while  (tempNode)
-        {
-            
-        }
-    }
-}
 
 void scopeStackInit(scopeStack* s)
 {
@@ -341,7 +404,7 @@ bool enterScope(scopeStack* s)
         return false;
     }
 
-    scope* temp = (scope*)(malloc(sizeof(scope)));
+    scope* temp = (scope*)malloc(sizeof(scope));
     if (temp == NULL)
     {
         perror("Failed to allocate new memory for scopes.");
@@ -349,11 +412,14 @@ bool enterScope(scopeStack* s)
     }
 
     temp->parentScope = s->topScope;
-    temp->scopeDepth = temp->parentScope ? temp->parentScope->scopeDepth + 1 : 0;
+    temp->scopeDepth  = temp->parentScope ? temp->parentScope->scopeDepth + 1 : 0;
     symbolTableInit(&temp->table);
+
     s->topScope = temp;
+
     return true;
 }
+
 
 bool exitScope(scopeStack* s)
 {
@@ -364,12 +430,20 @@ bool exitScope(scopeStack* s)
 
     if (s->topScope == NULL)
     {
-        reportError(SYNTAX_ERROR ,  "Unexpected '}' without matching '{'." , previousValidLine);
         return false;
     }
 
+    // if (s->topScope->parentScope == NULL)
+    // { --> beybawaz el symbol table
+    //     reportError(SYNTAX_ERROR , "Expected '}' To Match '{'" , previousValidLine);
+    //     return false;
+    // }
+
     scope *top = s->topScope;
     scope *parent = top->parentScope;
+
+    /* To keep track of the tables even after their scopes end, --> for prints */
+    dumpOneScopeToLogFile(top , "exe/scopes_logs.txt" , "Exiting Scope");
 
     freeSymbolTable(&top->table);
     free(top);
@@ -555,15 +629,18 @@ bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type r
 
 void dumpScopeStackToFile(scopeStack* s, const char* filename) {
     FILE* f = fopen(filename, "w");
-    if (!f) return;
+    if (!f) 
+    {
+        return;
+    }
 
     fprintf(f, "=== Symbol Tables (All Scopes) ===\n");
 
     scope* cur = s ? s->topScope : NULL;
-    while (cur) {
+    while (cur) 
+    {
         fprintf(f, "\n--- Scope Depth: %d ---\n", cur->scopeDepth);
 
-        // Print this scope's table buckets
         for (int i = 0; i < TABLE_SIZE; i++) {
             singleEntryNode* node = cur->table.buckets[i];
             while (node) {
@@ -584,12 +661,41 @@ void dumpScopeStackToFile(scopeStack* s, const char* filename) {
                 node = node->nextEntry;
             }
         }
-
         cur = cur->parentScope;
     }
-
     fclose(f);
 }
+
+void unusedIdentifiersWarning(scopeStack* s)
+{
+    if (s == NULL)
+    {
+        return;
+    }
+
+    scope* curScope = s->topScope;
+    while (curScope != NULL)
+    {
+        for (int i = 0; i < TABLE_SIZE; i++)
+        {
+            singleEntryNode* node = curScope->table.buckets[i];
+            while (node != NULL)
+            {
+                if (!node->isUsed)
+                {
+                    char buffer[512] = "\0";
+                    strcat(buffer, "Warning: Identifier (");
+                    strcat(buffer, node->identifierName);
+                    strcat(buffer, ") declared but never used.");
+                    //reportError(WARNING, buffer, previousValidLine);
+                }
+                node = node->nextEntry;
+            }
+        }
+        curScope = curScope->parentScope;
+    }
+}
+
 
 // int main(void)
 // {

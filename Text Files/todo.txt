@@ -1,25 +1,27 @@
 SEMANTICS:
-
-
     Types int float bool mostly can be converted (ana elha3melo fel symbol table msh boda)
 
 
 
 
-String quotes issue : fixed
-char quotes issue : i guess 
+int and float issue after assigning diff types (need to cast or handle it through the union)
+
+inc w dec don't update the current value in the symbol table
+
+assigning expressions to variables
 
 negative nums are not stored ?????????
 
 
-int and float issue after assigning diff types (need to cast or handle it through the union)
-
-
-return issue in the functions
 
 
 isUsed flag for functions when func call
 for variables also
 
+
 func decl working fine 
-func call not working at all
+
+call functions with no args even it has params
+
+
+

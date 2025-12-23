@@ -8,6 +8,7 @@
 
     #include "Quadruple.h"
     #include "ErrorHandler.h"
+    #include "WarningHandler.h"
     #include "Parameter.h"
     #include "Assembler.h"
     #include "SymbolTable.h"
@@ -217,6 +218,163 @@
     // ------------------------------
     scopeStack gScopeStack;
 
+    // ------------------------------
+    // Types Compatibility Utils
+    // ------------------------------
+    bool isNumericType(type t)
+    {
+        return t == INT_TYPE || t == FLOAT_TYPE || t == CHAR_TYPE;
+    }
+
+    int boolToInt(bool b)
+    {
+        return b ? 1 : 0;
+    }
+
+    float boolToFloat(bool b)
+    {
+        return b ? 1.0f : 0.0f;
+    }
+
+    bool intToBool(int i)
+    {
+        return i != 0;
+    }
+
+    float intToFloat(int i)
+    {
+        return (float)i;
+    }
+
+    int floatToInt(float f)
+    {
+        return (int)f;
+    }
+
+    bool floatToBool(float f)
+    {
+        return f != 0.0f;
+    }
+
+    static bool isNumeric(type t) 
+    {
+        return t == INT_TYPE || t == FLOAT_TYPE || t == BOOL_TYPE;
+    }
+
+    static void requireNumeric(type t, int line, const char* msg) 
+    {
+        if (!isNumeric(t)) 
+        {
+            reportError(SEMANTIC_ERROR, msg, line);
+        }
+    }
+
+    static type commonArithType(type a, type b) 
+    {
+        if (a == FLOAT_TYPE || b == FLOAT_TYPE) 
+        {
+            return FLOAT_TYPE;
+        }
+        return INT_TYPE; // bool/int -> int
+    }
+
+    static Expression* castTo(Expression* e, type target) 
+    {
+        if (!e) 
+        {
+            return NULL;
+        }
+
+        if (e->expressionType == target) 
+        {
+            return e;
+        }
+
+        // block char mixing automatically
+        if (!isNumeric(e->expressionType) || !isNumeric(target)) 
+        {
+            reportError(SEMANTIC_ERROR, "Invalid cast involving non-numeric type", previousValidLine);
+            return e;
+        }
+
+        char* src = exprToOperand(e);
+        char* t = createTemp();
+
+        if (e->expressionType == INT_TYPE && target == FLOAT_TYPE) 
+        {
+            addQuadruple(OP_ITOF, src, NULL, t);
+        }
+        else if (e->expressionType == BOOL_TYPE && target == FLOAT_TYPE) 
+        {
+            addQuadruple(OP_ITOF, src, NULL, t); // treat bool as int
+        }
+        else if (e->expressionType == FLOAT_TYPE && target == INT_TYPE) 
+        {
+            addQuadruple(OP_FTOI, src, NULL, t);
+        }
+        else if (e->expressionType == INT_TYPE && target == BOOL_TYPE) 
+        {
+            addQuadruple(OP_ITOB, src, NULL, t);
+        }
+        else if (e->expressionType == FLOAT_TYPE && target == BOOL_TYPE) 
+        {
+            addQuadruple(OP_FTOB, src, NULL, t);
+        }
+        else if (e->expressionType == BOOL_TYPE && target == INT_TYPE) 
+        {
+            addQuadruple(OP_BTOI, src, NULL, t);
+        }
+        else if (e->expressionType == BOOL_TYPE && target == BOOL_TYPE) { }
+        else if (e->expressionType == INT_TYPE && target == INT_TYPE) { }
+        else if (e->expressionType == FLOAT_TYPE && target == FLOAT_TYPE) { }
+        else 
+        {
+            reportError(SEMANTIC_ERROR, "Unsupported numeric cast", previousValidLine);
+            free(src); 
+            free(t);
+            return e;
+        }
+
+        free(src);
+
+        Expression* out = makeTempExpr(target, t);
+        free(t);
+        return out;
+    }
+
+    static Expression* toBoolExpr(Expression* e, int line) 
+    {
+        if (!e) 
+        {
+            return NULL;
+        }
+
+        if (!isNumeric(e->expressionType)) 
+        {
+            reportError(SEMANTIC_ERROR, "Logical operators require int/float/bool", line);
+            return e;
+        }
+
+        return castTo(e, BOOL_TYPE);
+    }
+
+    // ------------------------------
+    // Function Scopes and Params handling 
+    // ------------------------------
+    static Parameter* pending_function_params = NULL;
+    static bool pending_params_should_insert = false;
+
+    // ------------------------------
+    // Returns handling
+    // ------------------------------
+    //static bool myFunctionNeedsReturn = false;
+    static bool inFunctionScope = false;
+    static bool seen1ReturnStatement = false;
+
+    // ------------------------------
+    // Scopes handling
+    // ------------------------------
+;
 %}
 
 %locations
@@ -305,8 +463,7 @@ STATEMENT:
     DECLARATION SEMI_COLON
     | ASSIGNMENT SEMI_COLON
     | FUNCTION_CALL SEMI_COLON
-    | RETURN_STATEMENT SEMI_COLON
-
+    | RETURN_STATEMENT SEMI_COLON 
     | BREAK SEMI_COLON {
         char* b = get_break_label();
         if (!b) reportError(SEMANTIC_ERROR, "break used outside loop/switch", @1.first_line);
@@ -357,8 +514,45 @@ STATEMENT:
     ;
 
 BLOCK:
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); } STATEMENTS RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); $$ = NULL; }
+    LEFT_CURLY_BRACKET {
+        enterScope(&gScopeStack);
+     
+
+        if (pending_params_should_insert && pending_function_params) 
+        {
+            Parameter* p = pending_function_params;
+            while (p) 
+            {
+                if (p->Name) 
+                {
+                    singleEntryNode* a = lookupCurrentScope(&gScopeStack, p->Name);
+                    if (a) 
+                    {
+                        reportError(SEMANTIC_ERROR, "Duplicate parameter name", @1.first_line);
+                    }
+                    else 
+                    {
+                        value pv; memset(&pv, 0, sizeof(pv));
+                        singleEntryNode* pe = createNewEntry(p->Type, p->Name, SYMBOL_VARIABLE, pv, false, false, NULL);
+                        insertInCurrentScope(&gScopeStack, pe);
+                    }
+                }
+                p = p->Next;
+            }
+        }
+
+        pending_function_params = NULL;
+        pending_params_should_insert = false;
+    }
+    STATEMENTS
+    RIGHT_CURLY_BRACKET 
+    {
+        exitScope(&gScopeStack);
+
+        $$ = NULL;
+    }
     ;
+
 
 DECLARATION:
     DATATYPE IDENTIFIERS {
@@ -379,15 +573,30 @@ DECLARATION:
                     hasInit = false;
             value initVal;
             memset(&initVal, 0, sizeof(initVal));
+     ////////////////       1111111111111111111111111111111111
+            if (hasInit) 
+            {
+                // char* rhs = exprToOperand(cur->initExpr);
+                // addQuadruple(OP_ASSN, rhs, NULL, cur->name);
+                // free(rhs);
+                // updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
+
+                /* Should be correct, to be tested */
+                Expression* init = cur->initExpr;
+                if (init && isNumeric(declType)) 
+                {
+                    init = castTo(init, declType);
+                }
+
+                char* rhs = exprToOperand(init);
+                addQuadruple(OP_ASSN, rhs, NULL, cur->name);
+                free(rhs);
+            }
+
             if (hasInit) initVal = cur->initExpr->expressionValue;
             singleEntryNode* e = createNewEntry(declType, cur->name, SYMBOL_VARIABLE, initVal, hasInit, isConst, NULL);
             insertInCurrentScope(&gScopeStack, e);
-            if (hasInit) {
-                char* rhs = exprToOperand(cur->initExpr);
-                addQuadruple(OP_ASSN, rhs, NULL, cur->name);
-                free(rhs);
-                updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
-            }
+
             cur = cur->next;
         }
         freeDeclList($2);
@@ -486,11 +695,6 @@ ASSIGNMENT:
                 addQuadruple(OP_ASSN, rhs, NULL, $1);
                 free(rhs);
                 updateVariableValueScoped(&gScopeStack, $1, e->identifierType, $3->expressionValue);
-                /* Will check cases where we update the isUsed flag */
-                // if (e->isUsed == false) 
-                // {
-                //     e->isUsed = true;
-                // }
             }
         }
     }
@@ -900,20 +1104,45 @@ PRIMARY_CASE:
 
 RETURN_STATEMENT:
     RETURN {
-        if (current_function_return_type != VOID_TYPE) reportError(SEMANTIC_ERROR, "Missing return value", @1.first_line);
+        if (inFunctionScope == false) 
+        {
+            reportError(SEMANTIC_ERROR, "Return used outside function", @1.first_line);
+        }
+    
+        if(current_function_return_type != VOID_TYPE) 
+        {
+            reportError(SEMANTIC_ERROR, "Missing return value", @1.first_line);
+        }
+        else
+        {
+            seen1ReturnStatement = true;
+        }
         addQuadruple(OP_RETURN, NULL, NULL, NULL);
     }
     | RETURN LOGICAL_EXPRESSION {
-        if (current_function_return_type == VOID_TYPE) reportError(SEMANTIC_ERROR, "Returning a value from void function", @1.first_line);
-        else if ($2 && !isTypeCompatible(current_function_return_type, $2->expressionType)); // isTypeCompatible reports
-        char* rv = exprToOperand($2);
-        addQuadruple(OP_RETURN, rv, NULL, NULL);
-        free(rv);
+        if (inFunctionScope == false) 
+        {
+            reportError(SEMANTIC_ERROR, "Return used outside function", @1.first_line);
+        }
+        if (current_function_return_type == VOID_TYPE && gScopeStack.topScope->scopeDepth != 0) reportError(SEMANTIC_ERROR, "Returning a value from void function", @1.first_line);
+        else if ($2 && !isTypeCompatible(current_function_return_type, $2->expressionType))
+        {
+            // isTypeCompatible reports
+        }
+        else
+        {
+            seen1ReturnStatement = true;
+            char* rv = exprToOperand($2);
+            addQuadruple(OP_RETURN, rv, NULL, NULL);
+            free(rv);
+        }
     }
     ;
 
 FUNCTION_DEFINITION_IMPLEMENTATION:
     FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST RIGHT_ROUND_BRACKET {
+        seen1ReturnStatement = false;
+        inFunctionScope = true;
         type retType = datatypeStringToType($2);
         singleEntryNode* already = lookupCurrentScope(&gScopeStack, $3);
         if (already) reportError(SEMANTIC_ERROR, "Redeclaration of function in same scope", @3.first_line);
@@ -924,24 +1153,37 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
             insertInCurrentScope(&gScopeStack, fn);
         }
         current_function_return_type = retType;
-        enterScope(&gScopeStack);
-        Parameter* p = $5;
-        while (p) {
-            if (p->Name) {
-                singleEntryNode* a = lookupCurrentScope(&gScopeStack, p->Name);
-                if (a) reportError(SEMANTIC_ERROR, "Duplicate parameter name", @3.first_line);
-                else {
-                    value pv; 
-                    memset(&pv, 0, sizeof(pv));
-                    singleEntryNode* pe = createNewEntry(p->Type, p->Name, SYMBOL_VARIABLE, pv, false, false, NULL);
-                    insertInCurrentScope(&gScopeStack, pe);
-                }
-            }
-            p = p->Next;
-        }
+        
+        // enterScope(&gScopeStack); /* Send the params to the function scope, comment this*/
+        /* Params should be inserted to the function scope inside the block */
+        // Parameter* p = $5;
+        // while (p) {
+        //     if (p->Name) {
+        //         singleEntryNode* a = lookupCurrentScope(&gScopeStack, p->Name);
+        //         if (a) reportError(SEMANTIC_ERROR, "Duplicate parameter name", @3.first_line);
+        //         else {
+        //             value pv; 
+        //             memset(&pv, 0, sizeof(pv));
+        //             singleEntryNode* pe = createNewEntry(p->Type, p->Name, SYMBOL_VARIABLE, pv, false, false, NULL);
+        //             insertInCurrentScope(&gScopeStack, pe);
+        //         }
+        //     }
+        //     p = p->Next;
+        // }
+
+        /* Params handling */
+        pending_function_params = $5;
+        pending_params_should_insert = true;
+
     }
     BLOCK {
-        exitScope(&gScopeStack);
+        // exitScope(&gScopeStack); /* commented to match the commented enter scope above */
+        if (inFunctionScope) {
+            if (current_function_return_type != VOID_TYPE && !seen1ReturnStatement) {
+                reportError(SEMANTIC_ERROR, "Missing return statement in non-void function", @2.first_line);
+            }
+            inFunctionScope = false;
+        }
         current_function_return_type = VOID_TYPE;
     }
 
@@ -1456,6 +1698,7 @@ int main(int argc , char** argv) {
     }
     else yyin = stdin;
     scopeStackInit(&gScopeStack);
+    initScopeLogFile("exe/scopes_logs.txt"); /* For the Global Symbol Table + Children Symbol Tables */
     enterScope(&gScopeStack); // global scope
     int parseResult = yyparse();
     printQuadruplesToFile("exe/quadruples.txt");
@@ -1467,5 +1710,13 @@ int main(int argc , char** argv) {
         printf("\n%d Errors:\n", errorCount);
         printErrors();
     }
+
+    int warningCount = getWarningCount();
+    if (warningCount)
+    {
+        printf("\n%d Warnings:\n", warningCount);
+        printWarnings();
+    }
+
     return (parseResult == 0 && getErrorCount() == 0) ? 0 : 1;
 }

@@ -57,9 +57,13 @@ const char* operatorToString (Quad_Op Operator) {
         case OP_RETURN: return "RETURN";
         // Type Conversion Operator(s):
         case OP_ITOF: return "INT_TO_FLOAT";
-        case OP_FTOI: return "FLOAT_TO_INT";
-        // case OP_CTOI: return "CHAR_TO_INT";
         case OP_ITOB: return "INT_TO_BOOL";
+        case OP_FTOI: return "FLOAT_TO_INT";
+        case OP_FTOB: return "FLOAT_TO_BOOL";
+        case OP_BTOI: return "BOOL_TO_INT";
+        case OP_BTOF: return "BOOL_TO_FLOAT";
+        
+        // case OP_CTOI: return "CHAR_TO_INT"; unused emsa7ha law 3ayez
         // Anomaly Operator:
         default: return "UNKNOWN";
     }

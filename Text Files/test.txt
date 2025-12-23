@@ -1,0 +1,18 @@
+function int add(int q , int w)
+{
+	return q + w;
+}
+int x = 3;
+int r = 9;
+{
+	int y = 5;
+}
+
+{
+	char a = 'a';
+	{
+		string z = "zed";
+	}
+}
+
+int result = add(x , r);

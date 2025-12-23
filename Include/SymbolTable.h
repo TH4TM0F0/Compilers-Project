@@ -79,5 +79,7 @@ bool insertInCurrentScope(scopeStack* s, singleEntryNode* entry);
 bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type rhsType, value rhsVal);
 
 void dumpScopeStackToFile(scopeStack* s, const char* filename);
+void initScopeLogFile(const char* filename);
+void unusedIdentifiersWarning(scopeStack* s);
 
 #endif

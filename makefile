@@ -8,7 +8,8 @@ OBJS = parser.tab.c lex.yy.c \
        Source/Parameter.c \
        Source/Quadruple.c \
 	   Source/Utils.c \
-	   Source/SymbolTable.c
+	   Source/SymbolTable.c \
+	   Source/WarningHandler.c
 
 OUT = exe/compiler.exe
 
