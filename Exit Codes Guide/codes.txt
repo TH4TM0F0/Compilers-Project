@@ -1,6 +1,0 @@
-GUIDE:
-    [EXIT_CODE] : [BRIEF_DESCRIPTION] , [FUNCTION_CAUSING] , [FILE_CAUSING]
-________________________________________________________________________
-
-
-23 : Malloc failure , createNewEntry , SymbolTable.c 
