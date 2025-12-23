@@ -5,7 +5,6 @@
     #include <string.h>
     #include <stdbool.h>
     #include <math.h>
-
     #include "Quadruple.h"
     #include "ErrorHandler.h"
     #include "WarningHandler.h"
@@ -21,9 +20,6 @@
 
     void yyerror(const char* String);
 
-    // ------------------------------
-    // Break/Continue label stacks
-    // ------------------------------
     char *break_label_stack[100];
     char *continue_label_stack[100];
     int loop_label_top = -1;
@@ -50,17 +46,11 @@
         if (loop_label_top >= 0) loop_label_top--;
     }
 
-    // ------------------------------
-    // Switch helpers
-    // ------------------------------
     char *current_switch_var = NULL;
     char *current_switch_end_label = NULL;
     char *current_case_next_label = NULL;
     char *default_label = NULL;
 
-    // ------------------------------
-    // Declaration list node
-    // ------------------------------
     typedef struct DeclNode {
         char* name;
         struct Expression* initExpr;
@@ -94,9 +84,6 @@
         }
     }
 
-    // ------------------------------
-    // Local Arg list for function calls (stores Expression*)
-    // ------------------------------
     typedef struct ArgNode {
         struct Expression* expr;
         struct ArgNode* next;
@@ -125,27 +112,6 @@
         }
     }
 
-    // ------------------------------
-    // FOR condition expression stack (silenced unused)
-    // ------------------------------
-    static void push_for_cond(struct Expression* e) __attribute__((unused));
-    static struct Expression* pop_for_cond(void) __attribute__((unused));
-    static struct Expression* for_cond_expr_stack[100];
-    static int for_cond_top = -1;
-
-    static void push_for_cond(struct Expression* e) {
-        for_cond_top++;
-        for_cond_expr_stack[for_cond_top] = e;
-    }
-
-    static struct Expression* pop_for_cond(void) {
-        if (for_cond_top < 0) return NULL;
-        return for_cond_expr_stack[for_cond_top--];
-    }
-
-    // ------------------------------
-    // Helpers
-    // ------------------------------
     static type datatypeStringToType(const char* s) {
         if (!s) return VOID_TYPE;
         if (strcmp(s, "int") == 0) return INT_TYPE;
@@ -159,9 +125,7 @@
 
     static char* exprToOperand(struct Expression* e) {
         if (!e) return NULL;
-
         if (e->temp_var) return strdup(e->temp_var);
-
         char buf[256];
         switch (e->expressionType)
         {
@@ -210,170 +174,78 @@
     }
 
     static Parameter* makeParam(type t, const char* name) { return createParameter(name, t); }
+
     static Parameter* appendParam(Parameter* list, Parameter* tail) { return addParameter(list, tail); }
 
-    // ------------------------------
-    // Global scope stack
-    // ------------------------------
     scopeStack gScopeStack;
 
-    // ------------------------------
-    // Types Compatibility Utils
-    // ------------------------------
-    bool isNumericType(type t)
-    {
-        return t == INT_TYPE || t == FLOAT_TYPE || t == CHAR_TYPE;
-    }
+    bool isNumericType(type t) { return t == INT_TYPE || t == FLOAT_TYPE || t == CHAR_TYPE; }
 
-    int boolToInt(bool b)
-    {
-        return b ? 1 : 0;
-    }
+    int boolToInt(bool b) { return b ? 1 : 0; }
 
-    float boolToFloat(bool b)
-    {
-        return b ? 1.0f : 0.0f;
-    }
+    float boolToFloat(bool b) { return b ? 1.0f : 0.0f; }
 
-    bool intToBool(int i)
-    {
-        return i != 0;
-    }
+    bool intToBool(int i) { return i != 0; }
 
-    float intToFloat(int i)
-    {
-        return (float)i;
-    }
+    float intToFloat(int i) { return (float)i; }
 
-    int floatToInt(float f)
-    {
-        return (int)f;
-    }
+    int floatToInt(float f) { return (int)f; }
 
-    bool floatToBool(float f)
-    {
-        return f != 0.0f;
-    }
+    bool floatToBool(float f) { return f != 0.0f; }
 
-    static bool isNumeric(type t) 
-    {
-        return t == INT_TYPE || t == FLOAT_TYPE || t == BOOL_TYPE;
-    }
+    static bool isNumeric(type t) { return t == INT_TYPE || t == FLOAT_TYPE || t == BOOL_TYPE; }
 
-    static void requireNumeric(type t, int line, const char* msg) 
-    {
-        if (!isNumeric(t)) 
-        {
-            reportError(SEMANTIC_ERROR, msg, line);
-        }
-    }
+    // static void requireNumeric(type t, int line, const char* msg) {
+    //     if (!isNumeric(t)) reportError(SEMANTIC_ERROR, msg, line);
+    // }
 
-    static type commonArithType(type a, type b) 
-    {
-        if (a == FLOAT_TYPE || b == FLOAT_TYPE) 
-        {
-            return FLOAT_TYPE;
-        }
-        return INT_TYPE; // bool/int -> int
-    }
+    // static type commonArithType(type a, type b) {
+    //     if (a == FLOAT_TYPE || b == FLOAT_TYPE) return FLOAT_TYPE;
+    //     return INT_TYPE;
+    // }
 
-    static Expression* castTo(Expression* e, type target) 
-    {
-        if (!e) 
-        {
-            return NULL;
-        }
-
-        if (e->expressionType == target) 
-        {
-            return e;
-        }
-
-        // block char mixing automatically
-        if (!isNumeric(e->expressionType) || !isNumeric(target)) 
-        {
+    static Expression* castTo(Expression* e, type target) {
+        if (!e) return NULL;
+        if (e->expressionType == target) return e; 
+        if (!isNumeric(e->expressionType) || !isNumeric(target)) {
             reportError(SEMANTIC_ERROR, "Invalid cast involving non-numeric type", previousValidLine);
             return e;
         }
-
         char* src = exprToOperand(e);
         char* t = createTemp();
-
-        if (e->expressionType == INT_TYPE && target == FLOAT_TYPE) 
-        {
-            addQuadruple(OP_ITOF, src, NULL, t);
-        }
-        else if (e->expressionType == BOOL_TYPE && target == FLOAT_TYPE) 
-        {
-            addQuadruple(OP_ITOF, src, NULL, t); // treat bool as int
-        }
-        else if (e->expressionType == FLOAT_TYPE && target == INT_TYPE) 
-        {
-            addQuadruple(OP_FTOI, src, NULL, t);
-        }
-        else if (e->expressionType == INT_TYPE && target == BOOL_TYPE) 
-        {
-            addQuadruple(OP_ITOB, src, NULL, t);
-        }
-        else if (e->expressionType == FLOAT_TYPE && target == BOOL_TYPE) 
-        {
-            addQuadruple(OP_FTOB, src, NULL, t);
-        }
-        else if (e->expressionType == BOOL_TYPE && target == INT_TYPE) 
-        {
-            addQuadruple(OP_BTOI, src, NULL, t);
-        }
-        else if (e->expressionType == BOOL_TYPE && target == BOOL_TYPE) { }
-        else if (e->expressionType == INT_TYPE && target == INT_TYPE) { }
-        else if (e->expressionType == FLOAT_TYPE && target == FLOAT_TYPE) { }
-        else 
-        {
+        if (e->expressionType == INT_TYPE && target == FLOAT_TYPE) addQuadruple(OP_ITOF, src, NULL, t);
+        else if (e->expressionType == BOOL_TYPE && target == FLOAT_TYPE) addQuadruple(OP_ITOF, src, NULL, t);
+        else if (e->expressionType == FLOAT_TYPE && target == INT_TYPE) addQuadruple(OP_FTOI, src, NULL, t);
+        else if (e->expressionType == INT_TYPE && target == BOOL_TYPE) addQuadruple(OP_ITOB, src, NULL, t);
+        else if (e->expressionType == FLOAT_TYPE && target == BOOL_TYPE) addQuadruple(OP_FTOB, src, NULL, t);
+        else if (e->expressionType == BOOL_TYPE && target == INT_TYPE) addQuadruple(OP_BTOI, src, NULL, t);
+        else {
             reportError(SEMANTIC_ERROR, "Unsupported numeric cast", previousValidLine);
             free(src); 
             free(t);
             return e;
         }
-
         free(src);
-
         Expression* out = makeTempExpr(target, t);
         free(t);
         return out;
     }
 
-    static Expression* toBoolExpr(Expression* e, int line) 
-    {
-        if (!e) 
-        {
-            return NULL;
-        }
+    // static Expression* toBoolExpr(Expression* e, int line) {
+    //     if (!e) return NULL;
+    //     if (!isNumeric(e->expressionType)) {
+    //         reportError(SEMANTIC_ERROR, "Logical operators require int/float/bool", line);
+    //         return e;
+    //     }
+    //     return castTo(e, BOOL_TYPE);
+    // }
 
-        if (!isNumeric(e->expressionType)) 
-        {
-            reportError(SEMANTIC_ERROR, "Logical operators require int/float/bool", line);
-            return e;
-        }
-
-        return castTo(e, BOOL_TYPE);
-    }
-
-    // ------------------------------
-    // Function Scopes and Params handling 
-    // ------------------------------
     static Parameter* pending_function_params = NULL;
     static bool pending_params_should_insert = false;
 
-    // ------------------------------
-    // Returns handling
-    // ------------------------------
-    //static bool myFunctionNeedsReturn = false;
     static bool inFunctionScope = false;
     static bool seen1ReturnStatement = false;
 
-    // ------------------------------
-    // Scopes handling
-    // ------------------------------
-;
 %}
 
 %locations
@@ -398,8 +270,8 @@
     void* voidData;
     DeclNode* declList;
     Expression* expr;
-    Parameter* parameterList;  // for function definition params only
-    ArgNode* argList;          // for function call args only
+    Parameter* parameterList;  
+    ArgNode* argList;          
     struct
     {
         char* code;
@@ -515,22 +387,13 @@ STATEMENT:
 BLOCK:
     LEFT_CURLY_BRACKET {
         enterScope(&gScopeStack);
-     
-
-        if (pending_params_should_insert && pending_function_params) 
-        {
+        if (pending_params_should_insert && pending_function_params) {
             Parameter* p = pending_function_params;
-            while (p) 
-            {
-                if (p->Name) 
-                {
+            while (p) {
+                if (p->Name) {
                     singleEntryNode* a = lookupCurrentScope(&gScopeStack, p->Name);
-                    if (a) 
-                    {
-                        reportError(SEMANTIC_ERROR, "Duplicate parameter name", @1.first_line);
-                    }
-                    else 
-                    {
+                    if (a) reportError(SEMANTIC_ERROR, "Duplicate parameter name", @1.first_line);
+                    else {
                         value pv; memset(&pv, 0, sizeof(pv));
                         singleEntryNode* pe = createNewEntry(p->Type, p->Name, SYMBOL_VARIABLE, pv, false, false, NULL);
                         insertInCurrentScope(&gScopeStack, pe);
@@ -539,19 +402,11 @@ BLOCK:
                 p = p->Next;
             }
         }
-
         pending_function_params = NULL;
         pending_params_should_insert = false;
     }
-    STATEMENTS
-    RIGHT_CURLY_BRACKET 
-    {
-        exitScope(&gScopeStack);
-
-        $$ = NULL;
-    }
+    STATEMENTS RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); $$ = NULL; }
     ;
-
 
 DECLARATION:
     DATATYPE IDENTIFIERS {
@@ -560,8 +415,7 @@ DECLARATION:
         DeclNode* cur = $2;
         while (cur) {
             singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
-            if (already)
-            {
+            if (already) {
                 reportError(SEMANTIC_ERROR, "Redeclaration In The Same Scope", cur->line); // DONE
                 cur = cur->next;
                 continue;
@@ -572,9 +426,8 @@ DECLARATION:
                     hasInit = false;
             value initVal;
             memset(&initVal, 0, sizeof(initVal));
-     ////////////////       1111111111111111111111111111111111
-            if (hasInit) 
-            {
+            ////////////////       1111111111111111111111111111111111
+            if (hasInit) {
                 // char* rhs = exprToOperand(cur->initExpr);
                 // addQuadruple(OP_ASSN, rhs, NULL, cur->name);
                 // free(rhs);
@@ -582,8 +435,7 @@ DECLARATION:
 
                 /* Should be correct, to be tested */
                 Expression* init = cur->initExpr;
-                if (init && isNumeric(declType)) 
-                {
+                if (init && isNumeric(declType)) {
                     init = castTo(init, declType);
                 }
 
@@ -591,11 +443,9 @@ DECLARATION:
                 addQuadruple(OP_ASSN, rhs, NULL, cur->name);
                 free(rhs);
             }
-
             if (hasInit) initVal = cur->initExpr->expressionValue;
             singleEntryNode* e = createNewEntry(declType, cur->name, SYMBOL_VARIABLE, initVal, hasInit, isConst, NULL);
             insertInCurrentScope(&gScopeStack, e);
-
             cur = cur->next;
         }
         freeDeclList($2);
@@ -1120,9 +970,7 @@ SINGLE_CASE:
     ;
 
 DEFAULT_CASE:
-    DEFAULT COLON {
-        if (default_label) addQuadruple(OP_LABEL, NULL, NULL, default_label);
-    }
+    DEFAULT COLON { if (default_label) addQuadruple(OP_LABEL, NULL, NULL, default_label); }
     STATEMENTS {
         if (current_switch_end_label) addQuadruple(OP_GOTO, NULL, NULL, current_switch_end_label);
         $$ = NULL;
@@ -1180,33 +1028,16 @@ PRIMARY_CASE:
 
 RETURN_STATEMENT:
     RETURN {
-        if (inFunctionScope == false) 
-        {
-            reportError(SEMANTIC_ERROR, "Return used outside function", @1.first_line);
-        }
-    
-        if(current_function_return_type != VOID_TYPE) 
-        {
-            reportError(SEMANTIC_ERROR, "Missing return value", @1.first_line);
-        }
-        else
-        {
-            seen1ReturnStatement = true;
-        }
+        if (inFunctionScope == false) reportError(SEMANTIC_ERROR, "Return used outside function", @1.first_line);
+        if (current_function_return_type != VOID_TYPE) reportError(SEMANTIC_ERROR, "Missing return value", @1.first_line);
+        else seen1ReturnStatement = true;
         addQuadruple(OP_RETURN, NULL, NULL, NULL);
     }
     | RETURN LOGICAL_EXPRESSION {
-        if (inFunctionScope == false) 
-        {
-            reportError(SEMANTIC_ERROR, "Return used outside function", @1.first_line);
-        }
+        if (inFunctionScope == false) reportError(SEMANTIC_ERROR, "Return used outside function", @1.first_line);
         if (current_function_return_type == VOID_TYPE && gScopeStack.topScope->scopeDepth != 0) reportError(SEMANTIC_ERROR, "Returning a value from void function", @1.first_line);
-        else if ($2 && !isTypeCompatible(current_function_return_type, $2->expressionType))
-        {
-            // isTypeCompatible reports
-        }
-        else
-        {
+        else if ($2 && !isTypeCompatible(current_function_return_type, $2->expressionType)) { } // isTypeCompatible already reports
+        else {
             seen1ReturnStatement = true;
             char* rv = exprToOperand($2);
             addQuadruple(OP_RETURN, rv, NULL, NULL);
@@ -1229,7 +1060,6 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
             insertInCurrentScope(&gScopeStack, fn);
         }
         current_function_return_type = retType;
-        
         // enterScope(&gScopeStack); /* Send the params to the function scope, comment this*/
         /* Params should be inserted to the function scope inside the block */
         // Parameter* p = $5;
@@ -1246,7 +1076,6 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
         //     }
         //     p = p->Next;
         // }
-
         /* Params handling */
         pending_function_params = $5;
         pending_params_should_insert = true;
@@ -1255,9 +1084,7 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
     BLOCK {
         // exitScope(&gScopeStack); /* commented to match the commented enter scope above */
         if (inFunctionScope) {
-            if (current_function_return_type != VOID_TYPE && !seen1ReturnStatement) {
-                reportError(SEMANTIC_ERROR, "Missing return statement in non-void function", @2.first_line);
-            }
+            if (current_function_return_type != VOID_TYPE && !seen1ReturnStatement) reportError(SEMANTIC_ERROR, "Missing return statement in non-void function", @2.first_line);
             inFunctionScope = false;
         }
         current_function_return_type = VOID_TYPE;
@@ -1319,12 +1146,8 @@ ARGUMENT_LIST:
     ;
 
 ARGUMENTS:
-    LOGICAL_EXPRESSION {
-        $$ = makeArgNode($1);
-    }
-    | ARGUMENTS COMMA LOGICAL_EXPRESSION {
-        $$ = appendArgNode($1, makeArgNode($3));
-    }
+    LOGICAL_EXPRESSION { $$ = makeArgNode($1); }
+    | ARGUMENTS COMMA LOGICAL_EXPRESSION { $$ = appendArgNode($1, makeArgNode($3)); }
 
     // Error Handling:
     | ARGUMENTS COMMA error {
@@ -1773,23 +1596,24 @@ int main(int argc , char** argv) {
         }
     }
     else yyin = stdin;
+
     scopeStackInit(&gScopeStack);
     initScopeLogFile("exe/scopes_logs.txt"); /* For the Global Symbol Table + Children Symbol Tables */
+
     enterScope(&gScopeStack); // global scope
     int parseResult = yyparse();
     printQuadruplesToFile("exe/quadruples.txt");
     dumpScopeStackToFile(&gScopeStack, "exe/symbol_table.txt");
     quadruplesToAssembly("exe/output.asm");
     exitScope(&gScopeStack);
+
     int errorCount = getErrorCount();
     if (errorCount){
         printf("\n%d Errors:\n", errorCount);
         printErrors();
     }
-
     int warningCount = getWarningCount();
-    if (warningCount)
-    {
+    if (warningCount) {
         printf("\n%d Warnings:\n", warningCount);
         printWarnings();
     }
