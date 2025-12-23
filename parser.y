@@ -210,7 +210,6 @@
     }
 
     static Parameter* makeParam(type t, const char* name) { return createParameter(name, t); }
-
     static Parameter* appendParam(Parameter* list, Parameter* tail) { return addParameter(list, tail); }
 
     // ------------------------------
@@ -463,15 +462,15 @@ STATEMENT:
     DECLARATION SEMI_COLON
     | ASSIGNMENT SEMI_COLON
     | FUNCTION_CALL SEMI_COLON
-    | RETURN_STATEMENT SEMI_COLON 
-    | BREAK SEMI_COLON {
+    | RETURN_STATEMENT SEMI_COLON
+    | BREAK SEMI_COLON { 
         char* b = get_break_label();
-        if (!b) reportError(SEMANTIC_ERROR, "break used outside loop/switch", @1.first_line);
+        if (!b) reportError(SEMANTIC_ERROR, "'break' Used Outside Loop/Switch", @1.first_line); // DONE
         else addQuadruple(OP_GOTO, NULL, NULL, b);
     }
     | CONTINUE SEMI_COLON {
         char* c = get_continue_label();
-        if (!c) reportError(SEMANTIC_ERROR, "continue used outside loop", @1.first_line);
+        if (!c) reportError(SEMANTIC_ERROR, "'continue' Used Outside Loop", @1.first_line); // DONE
         else addQuadruple(OP_GOTO, NULL, NULL, c);
     }
     | BLOCK
@@ -483,32 +482,32 @@ STATEMENT:
     | FUNCTION_DEFINITION_IMPLEMENTATION
 
     // Error Handling:
-    | DECLARATION error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
+    | DECLARATION error { 
+        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line); // DONE
         yyerrok;
     }
     | ASSIGNMENT error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line); // DONE
         yyerrok;
     }
     | FUNCTION_CALL error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line); // DONE
         yyerrok;
     }
     | RETURN_STATEMENT error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line); // DONE
         yyerrok;
     }
     | BREAK error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line); // DONE
         yyerrok;
     }
     | CONTINUE error {
-        reportError(SYNTAX_ERROR, "Expected ';'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ';'", @1.first_line); // DONE
         yyerrok;
     }
-    | EQUAL LOGICAL_EXPRESSION SEMI_COLON {
-        reportError(SYNTAX_ERROR, "Expected Identifier Before '='", @1.first_line);
+    | LEFT_CURLY_BRACKET error {
+        reportError(SYNTAX_ERROR, "Expected '}' To Match '{'", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -561,15 +560,15 @@ DECLARATION:
         DeclNode* cur = $2;
         while (cur) {
             singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
-            if (already) 
+            if (already)
             {
-                reportError(SEMANTIC_ERROR, "Redeclaration in same scope", cur->line);
+                reportError(SEMANTIC_ERROR, "Redeclaration In The Same Scope", cur->line); // DONE
                 cur = cur->next;
                 continue;
             }
             bool hasInit = (cur->initExpr != NULL);
-            if (hasInit) 
-                if (!isTypeCompatible(declType, cur->initExpr->expressionType)) 
+            if (hasInit)
+                if (!isTypeCompatible(declType, cur->initExpr->expressionType))
                     hasInit = false;
             value initVal;
             memset(&initVal, 0, sizeof(initVal));
@@ -609,12 +608,12 @@ DECLARATION:
         while (cur) {
             singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
             if (already) {
-                reportError(SEMANTIC_ERROR, "Redeclaration in same scope", cur->line);
+                reportError(SEMANTIC_ERROR, "Redeclaration In The Same Scope", cur->line); // DONE
                 cur = cur->next;
                 continue;
             }
             if (!cur->initExpr) {
-                reportError(SEMANTIC_ERROR, "const must be initialized", cur->line);
+                reportError(SEMANTIC_ERROR, "const Identifier Must Be Initialized", cur->line); // DONE
                 cur = cur->next;
                 continue;
             }
@@ -636,23 +635,23 @@ DECLARATION:
     }
 
     // Error Handling:
-    | DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After Datatype", @2.first_line);
+    | DATATYPE error { 
+        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After Datatype", @1.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
     | CONST error {
-        reportError(SYNTAX_ERROR, "Expected Datatype After 'const'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Datatype After 'const'", @1.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
     | CONST DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After 'const datatype'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier/Declarator After 'const datatype'", @2.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
     | DATATYPE CONST {
-        reportError(SYNTAX_ERROR, "Unexpected Datatype Before 'const'", @1.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected Datatype Before 'const'", @1.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
@@ -666,17 +665,22 @@ IDENTIFIERS:
 
     // Error Handling:
     | IDENTIFIER EQUAL error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '='", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @2.first_line); // DONE
         yyerrok;
         $$ = makeDeclNode($1, NULL, @1.first_line);
     }
     | IDENTIFIERS COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After ','", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After ','", @2.first_line); // DONE
+        yyerrok;
+        $$ = $1;
+    }
+    | IDENTIFIERS COMMA IDENTIFIER EQUAL error {
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @4.first_line); // DONE
         yyerrok;
         $$ = $1;
     }
     | COMMA error {
-        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Identifier/Declarator", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unxpected ',' Before First Identifier/Declarator", @1.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
@@ -685,11 +689,11 @@ IDENTIFIERS:
 ASSIGNMENT:
     IDENTIFIER EQUAL LOGICAL_EXPRESSION {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
-        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared", @1.first_line);
-        else 
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @1.first_line); // DONE
+        else
         {
-            if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot assign to const", @1.first_line);
-            else if (!isTypeCompatible(e->identifierType, $3->expressionType));  // isTypeCompatible already reports 
+            if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot Assign To const", @1.first_line); // DONE
+            else if (!isTypeCompatible(e->identifierType, $3->expressionType)) { }  // isTypeCompatible already reports
             else {
                 char* rhs = exprToOperand($3);
                 addQuadruple(OP_ASSN, rhs, NULL, $1);
@@ -700,36 +704,36 @@ ASSIGNMENT:
     }
     | IDENTIFIER INCREMENT {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
-        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared", @1.first_line);
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @1.first_line); // DONE
         else addQuadruple(OP_INC, NULL, NULL, $1);
     }
     | IDENTIFIER DECREMENT {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
-        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared", @1.first_line);
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @1.first_line); // DONE
         else addQuadruple(OP_DEC, NULL, NULL, $1);
     }
     | INCREMENT IDENTIFIER {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $2);
-        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared", @2.first_line);
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @2.first_line); // DONE
         else addQuadruple(OP_INC, NULL, NULL, $2);
     }
     | DECREMENT IDENTIFIER {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $2);
-        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared", @2.first_line);
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @2.first_line); // DONE
         else addQuadruple(OP_DEC, NULL, NULL, $2);
     }
 
     // Error Handling:
     | IDENTIFIER EQUAL error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '='", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @2.first_line); // DONE
         yyerrok;
     }
     | INCREMENT error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After '++'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After '++'", @1.first_line); // DONE
         yyerrok;
     }
     | DECREMENT error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After '--'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After '--'", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -738,9 +742,9 @@ FUNCTION_CALL:
     IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET {
         singleEntryNode* fn = functionLookup(&gScopeStack, $1);
         if (!fn || fn->varOrFunc != SYMBOL_FUNCTION) {
-            reportError(SEMANTIC_ERROR, "Call to undeclared function", @1.first_line);
+            reportError(SEMANTIC_ERROR, "Call To Undeclared Function", @1.first_line); // DONE
             $$ = makeTempExpr(INT_TYPE, $1);
-        } 
+        }
         else {
             ArgNode* a = $3;
             while (a) {
@@ -754,10 +758,10 @@ FUNCTION_CALL:
                 addQuadruple(OP_CALL, $1, NULL, t);
                 $$ = makeTempExpr(fn->identifierType, t);
                 free(t);
-            } 
+            }
             else {
                 addQuadruple(OP_CALL, $1, NULL, NULL);
-                value v; 
+                value v;
                 memset(&v, 0, sizeof(v));
                 $$ = makeExpr(VOID_TYPE, v, NULL);
             }
@@ -767,11 +771,11 @@ FUNCTION_CALL:
 
     // Error Handling:
     | IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST error {
-        reportError(SYNTAX_ERROR, "Expected ')' In Function Call", @4.first_line);
+        reportError(SYNTAX_ERROR, "Expected ')' In Function Call", @3.first_line); // DONE
         yyerrok;
     }
     | IDENTIFIER error ARGUMENT_LIST RIGHT_ROUND_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected '(' In Function Call", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' In Function Call", @2.first_line); // DONE
         yyerrok;
     }
     ;
@@ -795,16 +799,8 @@ IF_STATEMENT:
     }
 
     // Error Handling:
-    | IF LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET BLOCK {
-        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'if'", @3.first_line);
-        yyerrok;
-    }
-    | IF error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'if'", @2.first_line);
-        yyerrok;
-    }
-    | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
-        reportError(SYNTAX_ERROR, "Expected ')' After Condition", @4.first_line);
+    | IF_HEAD error {
+        reportError(SYNTAX_ERROR, "Expected If Block '{ }' After 'if (...)'", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -816,6 +812,24 @@ IF_HEAD:
         char* cond = exprToOperand($3);
         addQuadruple(OP_IFFALSE, cond, NULL, $$.false_label);
         free(cond);
+    }
+
+    // Error Handling:
+    | IF error {
+        reportError(SYNTAX_ERROR, "Expected '(' After 'if'", @1.first_line); // DONE
+        yyerrok;
+    }
+    | IF LEFT_ROUND_BRACKET error {
+        reportError(SYNTAX_ERROR, "Expected Condition After '('", @2.first_line); // DONE
+        yyerrok;
+    }
+    | IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
+        reportError(SYNTAX_ERROR, "Expected ')' After Condition", @3.first_line); // DONE
+        yyerrok;
+    }
+    | IF LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET {
+        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'if'", @3.first_line); // DONE
+        yyerrok;
     }
     ;
 
@@ -830,16 +844,8 @@ WHILE_STATEMENT:
     }
 
     // Error Handling:
-    | WHILE LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET BLOCK {
-        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'while'", @3.first_line);
-        yyerrok;
-    }
-    | WHILE error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'while'", @2.first_line);
-        yyerrok;
-    }
-    | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
-        reportError(SYNTAX_ERROR, "Expected ')' After Condition", @4.first_line);
+    | WHILE_HEAD error {
+        reportError(SYNTAX_ERROR, "Expected While Block '{ }' After 'while'", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -854,12 +860,28 @@ WHILE_HEAD:
         free(cond);
         push_loop_labels($$.end_label, $$.start_label);
     }
+
+    // Error Handling:
+    | WHILE error {
+        reportError(SYNTAX_ERROR, "Expected '(' After 'while'", @1.first_line); // DONE
+        yyerrok;
+    }
+    | WHILE LEFT_ROUND_BRACKET error {
+        reportError(SYNTAX_ERROR, "Expected Condition After '('", @2.first_line); // DONE
+        yyerrok;
+    }
+    | WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
+        reportError(SYNTAX_ERROR, "Expected ')' After Condition", @3.first_line); // DONE
+        yyerrok;
+    }
+    | WHILE LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET {
+        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'while'", @3.first_line); // DONE
+        yyerrok;
+    }
     ;
 
 REPEAT_STATEMENT:
-    REPEAT_HEAD
-    BLOCK
-    UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET SEMI_COLON {
+    REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET SEMI_COLON {
         pop_loop_labels();
         char* cond = exprToOperand($5);
         addQuadruple(OP_IFFALSE, cond, NULL, $1.start_label);
@@ -871,8 +893,32 @@ REPEAT_STATEMENT:
     }
 
     // Error Handling:
+    | REPEAT_HEAD error {
+        reportError(SYNTAX_ERROR, "Expected Repeat Block '{ }' After 'repeat'", @1.first_line); // DONE
+        yyerrok;
+    }
     | REPEAT_HEAD BLOCK error {
-        reportError(SYNTAX_ERROR, "Expected 'until (...) ;' After 'repeat' Block", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected 'until (...) ;' After Repeat Block", @2.first_line); // DONE
+        yyerrok;
+    }
+    | REPEAT_HEAD BLOCK UNTIL error {
+        reportError(SYNTAX_ERROR, "Expected '(' After 'until'", @3.first_line); // DONE
+        yyerrok;
+    }
+    | REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET error {
+        reportError(SYNTAX_ERROR, "Expected Condition After '('", @4.first_line); // DONE
+        yyerrok;
+    }
+    | REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error  {
+        reportError(SYNTAX_ERROR, "Expected ')' After Condition", @5.first_line); // DONE
+        yyerrok;
+    }
+    | REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET {
+        reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'until'", @4.first_line); // DONE
+        yyerrok;
+    }
+    | REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error  {
+        reportError(SYNTAX_ERROR, "Expected ';' After 'until (...)'", @5.first_line); // DONE
         yyerrok;
     }
     ;
@@ -887,8 +933,7 @@ REPEAT_HEAD:
     ;
 
 FOR_STATEMENT:
-    FOR_HEADER
-    BLOCK {
+    FOR_HEADER BLOCK {
         pop_loop_labels();
         addQuadruple(OP_GOTO, NULL, NULL, $1.incr_label);
         addQuadruple(OP_LABEL, NULL, NULL, $1.end_label);
@@ -899,8 +944,8 @@ FOR_STATEMENT:
     }
 
     // Error Handling:
-    | FOR error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'for'", @2.first_line);
+    | FOR_HEADER error {
+        reportError(SYNTAX_ERROR, "Expected For Block '{ }' After 'for'", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -918,14 +963,44 @@ FOR_HEADER:
         free(cond);
         push_loop_labels($$.end_label, $$.incr_label);
     }
+
+    // Error Handling:
+    | FOR error {
+        reportError(SYNTAX_ERROR, "Expected '(' After for", @1.first_line); // DONE
+        yyerrok;
+    }
+    | FOR LEFT_ROUND_BRACKET error {
+        reportError(SYNTAX_ERROR, "Expected Iterator After '('", @2.first_line); // DONE
+        yyerrok;
+    }
+    | FOR LEFT_ROUND_BRACKET ITERATOR error {
+        reportError(SYNTAX_ERROR, "Expected ';' After Iterator", @3.first_line); // DONE
+        yyerrok;
+    }
+    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON error {
+        reportError(SYNTAX_ERROR, "Expected Condition After ';'", @4.first_line); // DONE
+        yyerrok;
+    }
+    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION error {
+        reportError(SYNTAX_ERROR, "Expected ';' After Condition", @5.first_line); // DONE
+        yyerrok;
+    }
+    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON error {
+        reportError(SYNTAX_ERROR, "Expected Loop Step After ';'", @6.first_line); // DONE
+        yyerrok;
+    }
+    | FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT error {
+        reportError(SYNTAX_ERROR, "Expected ')' After Loop Step", @7.first_line); // DONE
+        yyerrok;
+    }
     ;
 
 ITERATOR:
     IDENTIFIER EQUAL LOGICAL_EXPRESSION {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
-        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared (for-init)", @1.first_line); 
-        else if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot assign to const (for-init)", @1.first_line); 
-        else if (!isTypeCompatible(e->identifierType, $3->expressionType)); // isTypeCompatible reports
+        if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared (for-init)", @1.first_line);
+        else if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot assign to const (for-init)", @1.first_line);
+        else if (!isTypeCompatible(e->identifierType, $3->expressionType)) { } // isTypeCompatible reports
         else {
             char* rhs = exprToOperand($3);
             addQuadruple(OP_ASSN, rhs, NULL, $1);
@@ -938,7 +1013,7 @@ ITERATOR:
         singleEntryNode* already = lookupCurrentScope(&gScopeStack, $2);
         if (already) reportError(SEMANTIC_ERROR, "Redeclaration in same scope (for-init)", @2.first_line);
         else {
-            if (!isTypeCompatible(declType, $4->expressionType)); // isTypeCompatible reports
+            if (!isTypeCompatible(declType, $4->expressionType)) { } // isTypeCompatible reports
             else {
                 value initVal = $4->expressionValue;
                 singleEntryNode* e = createNewEntry(declType, $2, SYMBOL_VARIABLE, initVal, true, false, NULL);
@@ -953,15 +1028,19 @@ ITERATOR:
 
     // Error Handling:
     | IDENTIFIER EQUAL error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '=' In For-Initializer", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @2.first_line); // DONE
         yyerrok;
     }
     | DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Datatype In For-Initializer", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Datatype", @1.first_line); // DONE
         yyerrok;
     }
     | DATATYPE IDENTIFIER error {
-        reportError(SYNTAX_ERROR, "Expected '=' After Identifier In For-Initializer", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected '=' After Identifier", @2.first_line); // DONE
+        yyerrok;
+    }
+    | DATATYPE IDENTIFIER EQUAL error {
+        reportError(SYNTAX_ERROR, "Expected Expression After '='", @2.first_line); // DONE
         yyerrok;
     }
     ;
@@ -978,25 +1057,22 @@ SWITCH_STATEMENT:
         default_label = createLabel();
         push_loop_labels(current_switch_end_label, NULL);
     }
-    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); }
-    CASES
-    DEFAULT_CASE_OPT
-    RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); } {
+    LEFT_CURLY_BRACKET { enterScope(&gScopeStack); } CASES DEFAULT_CASE_OPT RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); } {
         addQuadruple(OP_LABEL, NULL, NULL, default_label);
         addQuadruple(OP_LABEL, NULL, NULL, current_switch_end_label);
         pop_loop_labels();
-        free(current_switch_var); 
+        free(current_switch_var);
         current_switch_var = NULL;
-        free(current_switch_end_label); 
+        free(current_switch_end_label);
         current_switch_end_label = NULL;
-        free(default_label); 
+        free(default_label);
         default_label = NULL;
         $$.code = NULL;
     }
 
     // Error Handling:
     | SWITCH error {
-        reportError(SYNTAX_ERROR, "Expected '(' After 'switch'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After 'switch'", @1.first_line);
         yyerrok;
     }
     ;
@@ -1034,11 +1110,11 @@ SINGLE_CASE:
 
     // Error Handling:
     | CASE error {
-        reportError(SYNTAX_ERROR, "Expected Case Value After 'case'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Case Value After 'case'", @1.first_line);
         yyerrok;
     }
     | CASE PRIMARY_CASE error {
-        reportError(SYNTAX_ERROR, "Expected ':' After Case Value", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected ':' After Case Value", @2.first_line);
         yyerrok;
     }
     ;
@@ -1054,26 +1130,26 @@ DEFAULT_CASE:
 
     // Error Handling:
     | DEFAULT error {
-        reportError(SYNTAX_ERROR, "Expected ':' After 'default'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected ':' After 'default'", @1.first_line);
         yyerrok;
     }
     ;
 
 PRIMARY_CASE:
     INTVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.INT_Data = $1;
         $$ = makeExpr(INT_TYPE, v, NULL);
     }
     | CHARVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.CHAR_Data = $1;
         $$ = makeExpr(CHAR_TYPE, v, NULL);
     }
     | BOOLVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.BOOL_Data = $1;
         $$ = makeExpr(BOOL_TYPE, v, NULL);
@@ -1082,20 +1158,20 @@ PRIMARY_CASE:
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
         if (!e) {
             reportError(SEMANTIC_ERROR, "Use of undeclared identifier in case", @1.first_line);
-            value v; 
+            value v;
             memset(&v, 0, sizeof(v));
             $$ = makeExpr(INT_TYPE, v, $1);
-        } 
+        }
         else $$ = makeExpr(e->identifierType, e->currentValue, $1);
     }
     | FLOATVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.FLOAT_Data = $1;
         $$ = makeExpr(FLOAT_TYPE, v, NULL);
     }
     | STRINGVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.STRING_Data = strdup($1);
         $$ = makeExpr(STRING_TYPE, v, NULL);
@@ -1147,7 +1223,7 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
         singleEntryNode* already = lookupCurrentScope(&gScopeStack, $3);
         if (already) reportError(SEMANTIC_ERROR, "Redeclaration of function in same scope", @3.first_line);
         else {
-            value v; 
+            value v;
             memset(&v, 0, sizeof(v));
             singleEntryNode* fn = createNewEntry(retType, $3, SYMBOL_FUNCTION, v, true, false, $5);
             insertInCurrentScope(&gScopeStack, fn);
@@ -1189,19 +1265,19 @@ FUNCTION_DEFINITION_IMPLEMENTATION:
 
     // Error Handling:
     | FUNCTION error {
-        reportError(SYNTAX_ERROR, "Expected Datatype After 'function'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Datatype After 'function'", @1.first_line);
         yyerrok;
     }
     | FUNCTION DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Function Datatype", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Function Datatype", @2.first_line);
         yyerrok;
     }
     | FUNCTION DATATYPE IDENTIFIER error {
-        reportError(SYNTAX_ERROR, "Expected '(' After Function Name", @4.first_line);
+        reportError(SYNTAX_ERROR, "Expected '(' After Function Name", @3.first_line);
         yyerrok;
     }
     | FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST error {
-        reportError(SYNTAX_ERROR, "Expected ')' After Parameters", @6.first_line);
+        reportError(SYNTAX_ERROR, "Expected ')' After Parameters", @5.first_line);
         yyerrok;
     }
     ;
@@ -1221,17 +1297,17 @@ PARAM_LIST_NONEMPTY:
 
     // Error Handling:
     | DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @1.first_line);
         yyerrok;
         $$ = NULL;
     }
     | PARAM_LIST_NONEMPTY COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Datatype After ',' In Parameter List", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Datatype After ',' In Parameter List", @2.first_line);
         yyerrok;
         $$ = $1;
     }
     | PARAM_LIST_NONEMPTY COMMA DATATYPE error {
-        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @4.first_line);
+        reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", @3.first_line);
         yyerrok;
         $$ = $1;
     }
@@ -1252,12 +1328,12 @@ ARGUMENTS:
 
     // Error Handling:
     | ARGUMENTS COMMA error {
-        reportError(SYNTAX_ERROR, "Expected Expression After ',' In Arguments", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After ',' In Arguments", @2.first_line); // DONE
         yyerrok;
         $$ = $1;
     }
     | COMMA error {
-        reportError(SYNTAX_ERROR, "Unexpected ',' Before First Argument", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected ',' Before First Argument", @1.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
@@ -1269,7 +1345,7 @@ LOGICAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_OR, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1278,11 +1354,11 @@ LOGICAL_EXPRESSION:
 
     // Error Handling:
     | LOGICAL_EXPRESSION OR error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '||'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '||'", @2.first_line); // DONE
         yyerrok;
     }
     | OR error {
-        reportError(SYNTAX_ERROR, "Unexpected '||' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '||' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1293,7 +1369,7 @@ LOGICAL_TERM:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_AND, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1302,11 +1378,11 @@ LOGICAL_TERM:
 
     // Error Handling:
     | LOGICAL_TERM AND error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '&&'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '&&'", @2.first_line); // DONE
         yyerrok;
     }
     | AND error {
-        reportError(SYNTAX_ERROR, "Unexpected '&&' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '&&' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1317,7 +1393,7 @@ EQUALITY_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_EQ, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1327,7 +1403,7 @@ EQUALITY_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_NEQ, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1336,19 +1412,19 @@ EQUALITY_EXPRESSION:
 
     // Error Handling:
     | EQUALITY_EXPRESSION EQ error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '=='", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '=='", @2.first_line); // DONE
         yyerrok;
     }
     | EQUALITY_EXPRESSION NEQ error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '!='", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '!='", @2.first_line); // DONE
         yyerrok;
     }
     | EQ error {
-        reportError(SYNTAX_ERROR, "Unexpected '==' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '==' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     | NEQ error {
-        reportError(SYNTAX_ERROR, "Unexpected '!=' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '!=' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1359,7 +1435,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_LT, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1369,7 +1445,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_GT, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1379,7 +1455,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_LTE, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1389,7 +1465,7 @@ RELATIONAL_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_GTE, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(BOOL_TYPE, t);
         free(t);
@@ -1398,35 +1474,35 @@ RELATIONAL_EXPRESSION:
 
     // Error Handling:
     | RELATIONAL_EXPRESSION ST error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '<'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '<'", @2.first_line); // DONE
         yyerrok;
     }
     | RELATIONAL_EXPRESSION GT error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '>'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '>'", @2.first_line); // DONE
         yyerrok;
     }
     | RELATIONAL_EXPRESSION SE error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '<='", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '<='", @2.first_line); // DONE
         yyerrok;
     }
     | RELATIONAL_EXPRESSION GE error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '>='", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '>='", @2.first_line); // DONE
         yyerrok;
     }
     | ST error {
-        reportError(SYNTAX_ERROR, "Unexpected '<' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '<' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     | GT error {
-        reportError(SYNTAX_ERROR, "Unexpected '>' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '>' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     | SE error {
-        reportError(SYNTAX_ERROR, "Unexpected '<=' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '<=' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     | GE error {
-        reportError(SYNTAX_ERROR, "Unexpected '>=' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '>=' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1438,7 +1514,7 @@ ADDITIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_ADD, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1449,7 +1525,7 @@ ADDITIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_SUB, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1458,15 +1534,15 @@ ADDITIVE_EXPRESSION:
 
     // Error Handling:
     | ADDITIVE_EXPRESSION PLUS error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '+'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '+'", @2.first_line); // DONE
         yyerrok;
     }
     | ADDITIVE_EXPRESSION MINUS error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '-'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '-'", @2.first_line); // DONE
         yyerrok;
     }
     | PLUS error {
-        reportError(SYNTAX_ERROR, "Unexpected '+' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '+' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1478,7 +1554,7 @@ MULTIPLICATIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_MUL, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1489,7 +1565,7 @@ MULTIPLICATIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_DIV, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(rt, t);
         free(t);
@@ -1499,7 +1575,7 @@ MULTIPLICATIVE_EXPRESSION:
         char* a2 = exprToOperand($3);
         char* t  = createTemp();
         addQuadruple(OP_MOD, a1, a2, t);
-        free(a1); 
+        free(a1);
         free(a2);
         $$ = makeTempExpr(INT_TYPE, t);
         free(t);
@@ -1508,27 +1584,27 @@ MULTIPLICATIVE_EXPRESSION:
 
     // Error Handling:
     | MULTIPLICATIVE_EXPRESSION MULTIPLY error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '*'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '*'", @2.first_line); // DONE
         yyerrok;
     }
     | MULTIPLICATIVE_EXPRESSION DIVIDE error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '/'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '/'", @2.first_line); // DONE
         yyerrok;
     }
     | MULTIPLICATIVE_EXPRESSION MODULO error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '%'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '%'", @2.first_line); // DONE
         yyerrok;
     }
     | MULTIPLY error {
-        reportError(SYNTAX_ERROR, "Unexpected '*' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '*' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     | DIVIDE error {
-        reportError(SYNTAX_ERROR, "Unexpected '/' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '/' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     | MODULO error {
-        reportError(SYNTAX_ERROR, "Unexpected '%' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '%' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1543,19 +1619,19 @@ EXPONENT_EXPRESSION:
         value v;
         memset(&v, 0, sizeof(v));
         $$ = makeExpr(resultType, v, t);
-        free(a1); 
-        free(a2); 
+        free(a1);
+        free(a2);
         free(t);
     }
     | UNARY_EXPRESSION { $$ = $1; }
 
     // Error Handling:
     | EXPONENT_EXPRESSION POWER error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '**'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '**'", @2.first_line); // DONE
         yyerrok;
     }
     | POWER error {
-        reportError(SYNTAX_ERROR, "Unexpected '**' At Start Of Expression", @2.first_line);
+        reportError(SYNTAX_ERROR, "Unexpected '**' At Start Of Expression", @1.first_line); // DONE
         yyerrok;
     }
     ;
@@ -1581,42 +1657,42 @@ UNARY_EXPRESSION:
 
     // Error Handling:
     | NOT error {
-        reportError(SYNTAX_ERROR, "Expected Expression After '!'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After '!'", @1.first_line); // DONE
         yyerrok;
     }
     | MINUS error %prec UMINUS {
-        reportError(SYNTAX_ERROR, "Expected Expression After Unary '-'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression After Unary '-'", @1.first_line); // DONE
         yyerrok;
     }
     ;
 
 PRIMARY_EXPRESSION:
     INTVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.INT_Data = $1;
         $$ = makeExpr(INT_TYPE, v, NULL);
     }
     | FLOATVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.FLOAT_Data = $1;
         $$ = makeExpr(FLOAT_TYPE, v, NULL);
     }
     | CHARVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.CHAR_Data = $1;
         $$ = makeExpr(CHAR_TYPE, v, NULL);
     }
     | BOOLVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.BOOL_Data = $1;
         $$ = makeExpr(BOOL_TYPE, v, NULL);
     }
     | STRINGVALUE {
-        value v; 
+        value v;
         memset(&v, 0, sizeof(v));
         v.STRING_Data = strdup($1);
         $$ = makeExpr(STRING_TYPE, v, NULL);
@@ -1630,7 +1706,7 @@ PRIMARY_EXPRESSION:
             if (!fn || fn->varOrFunc != SYMBOL_FUNCTION) {
                 reportError(SEMANTIC_ERROR, "Call to undeclared function", @1.first_line);
                 $$ = makeTempExpr(INT_TYPE, $1);
-            } 
+            }
             else {
                 ArgNode* a = $2;
                 while (a) {
@@ -1644,36 +1720,36 @@ PRIMARY_EXPRESSION:
                     addQuadruple(OP_CALL, $1, NULL, t);
                     $$ = makeTempExpr(fn->identifierType, t);
                     free(t);
-                } 
+                }
                 else {
                     addQuadruple(OP_CALL, $1, NULL, NULL);
-                    value v; 
+                    value v;
                     memset(&v, 0, sizeof(v));
                     $$ = makeExpr(VOID_TYPE, v, NULL);
                 }
             }
             freeArgList($2);
-        } 
+        }
         else {
             singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
             if (!e) {
                 reportError(SEMANTIC_ERROR, "Use of undeclared identifier", @1.first_line);
-                value v; 
+                value v;
                 memset(&v, 0, sizeof(v));
                 $$ = makeExpr(INT_TYPE, v, $1);
-            } 
+            }
             else $$ = makeExpr(e->identifierType, e->currentValue, $1);
         }
     }
 
     // Error Handling:
     | LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET {
-        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )'", @2.first_line);
+        reportError(SYNTAX_ERROR, "Expected Expression Inside '( )'", @2.first_line); // DONE
         yyerrok;
         $$ = NULL;
     }
     | LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error {
-        reportError(SYNTAX_ERROR, "Expected ')'", @3.first_line);
+        reportError(SYNTAX_ERROR, "Expected ')'", @2.first_line); // DONE
         yyerrok;
         $$ = $2;
     }
