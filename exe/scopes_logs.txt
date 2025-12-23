@@ -1,0 +1,10 @@
+=== Symbol Tables Scope Log ===
+(Each scope is dumped at the moment it exits)
+
+----------------------------------------
+SCOPE DUMP (Exiting Scope)
+Depth: 1
+----------------------------------------
+Name = x | Kind = VARIABLE | Type = int | Init = 0 | Const = 0 | Used = 1
+Name = y | Kind = VARIABLE | Type = int | Init = 0 | Const = 0 | Used = 1
+

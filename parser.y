@@ -226,7 +226,33 @@
             return e;
         }
         free(src);
-        Expression* out = makeTempExpr(target, t);
+                
+        value outv;
+        memset(&outv, 0, sizeof(outv));
+
+        if (e->temp_var == NULL) /* literal or known constant */
+        {
+            if (target == INT_TYPE)
+            {
+                if (e->expressionType == FLOAT_TYPE) outv.INT_Data = (int)e->expressionValue.FLOAT_Data;
+                else if (e->expressionType == BOOL_TYPE) outv.INT_Data = e->expressionValue.BOOL_Data ? 1 : 0;
+                else outv.INT_Data = e->expressionValue.INT_Data;
+            }
+            else if (target == FLOAT_TYPE)
+            {
+                if (e->expressionType == INT_TYPE) outv.FLOAT_Data = (float)e->expressionValue.INT_Data;
+                else if (e->expressionType == BOOL_TYPE) outv.FLOAT_Data = e->expressionValue.BOOL_Data ? 1.0f : 0.0f;
+                else outv.FLOAT_Data = e->expressionValue.FLOAT_Data;
+            }
+            else if (target == BOOL_TYPE)
+            {
+                if (e->expressionType == INT_TYPE) outv.BOOL_Data = (e->expressionValue.INT_Data != 0);
+                else if (e->expressionType == FLOAT_TYPE) outv.BOOL_Data = (e->expressionValue.FLOAT_Data != 0.0f);
+                else outv.BOOL_Data = e->expressionValue.BOOL_Data;
+            }
+        }
+
+                Expression* out = makeExpr(target, outv, t);
         free(t);
         return out;
     }
@@ -245,6 +271,8 @@
 
     static bool inFunctionScope = false;
     static bool seen1ReturnStatement = false;
+
+    static bool comingFromForLoopHeader = false;
 
 %}
 
@@ -386,7 +414,10 @@ STATEMENT:
 
 BLOCK:
     LEFT_CURLY_BRACKET {
-        enterScope(&gScopeStack);
+        if (!comingFromForLoopHeader)
+        {
+            enterScope(&gScopeStack);
+        }
         if (pending_params_should_insert && pending_function_params) {
             Parameter* p = pending_function_params;
             while (p) {
@@ -405,51 +436,70 @@ BLOCK:
         pending_function_params = NULL;
         pending_params_should_insert = false;
     }
-    STATEMENTS RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); $$ = NULL; }
+    STATEMENTS RIGHT_CURLY_BRACKET { exitScope(&gScopeStack); comingFromForLoopHeader = false; $$ = NULL; }
     ;
 
 DECLARATION:
     DATATYPE IDENTIFIERS {
-        type declType = datatypeStringToType($1);
-        bool isConst = false;
-        DeclNode* cur = $2;
-        while (cur) {
-            singleEntryNode* already = lookupCurrentScope(&gScopeStack, cur->name);
-            if (already) {
-                reportError(SEMANTIC_ERROR, "Redeclaration In The Same Scope", cur->line); // DONE
-                cur = cur->next;
-                continue;
-            }
-            bool hasInit = (cur->initExpr != NULL);
-            if (hasInit)
-                if (!isTypeCompatible(declType, cur->initExpr->expressionType))
-                    hasInit = false;
-            value initVal;
-            memset(&initVal, 0, sizeof(initVal));
-            ////////////////       1111111111111111111111111111111111
-            if (hasInit) {
-                // char* rhs = exprToOperand(cur->initExpr);
-                // addQuadruple(OP_ASSN, rhs, NULL, cur->name);
-                // free(rhs);
-                // updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
+    type declType = datatypeStringToType($1);
+    bool isConst = false;
 
-                /* Should be correct, to be tested */
-                Expression* init = cur->initExpr;
-                if (init && isNumeric(declType)) {
-                    init = castTo(init, declType);
-                }
+    DeclNode* cur = $2;
+    while (cur) {
 
-                char* rhs = exprToOperand(init);
-                addQuadruple(OP_ASSN, rhs, NULL, cur->name);
-                free(rhs);
-            }
-            if (hasInit) initVal = cur->initExpr->expressionValue;
-            singleEntryNode* e = createNewEntry(declType, cur->name, SYMBOL_VARIABLE, initVal, hasInit, isConst, NULL);
-            insertInCurrentScope(&gScopeStack, e);
-            cur = cur->next;
+      // 1) redeclaration check (same scope only)
+    if (lookupCurrentScope(&gScopeStack, cur->name)) 
+    {
+        reportError(SEMANTIC_ERROR, "Redeclaration In The Same Scope", cur->line);
+        cur = cur->next;
+        continue;
+    }
+
+      // 2) default value = zero (prevents garbage)
+    value initVal;
+    memset(&initVal, 0, sizeof(initVal));
+    bool hasInit = (cur->initExpr != NULL);
+
+    Expression* rhs = cur->initExpr;
+
+      // 3) if has init: type check + cast if needed
+    if (hasInit) 
+    {
+        if (!isTypeCompatible(declType, rhs->expressionType)) 
+        {
+          // isTypeCompatible reports already
+          hasInit = false; // treat as "not initialized"
+        } 
+        else if (isNumeric(declType) && isNumeric(rhs->expressionType) && declType != rhs->expressionType) 
+        {
+          rhs = castTo(rhs, declType);  // generates cast quadruple + returns expr of declType
         }
-        freeDeclList($2);
-        $$ = NULL;
+
+        if (declType == INT_TYPE) initVal.INT_Data = rhs->expressionValue.INT_Data;
+        else if (declType == FLOAT_TYPE) initVal.FLOAT_Data = rhs->expressionValue.FLOAT_Data;
+        else if (declType == BOOL_TYPE) initVal.BOOL_Data = rhs->expressionValue.BOOL_Data;
+        else if (declType == CHAR_TYPE) initVal.CHAR_Data = rhs->expressionValue.CHAR_Data;
+        else if (declType == STRING_TYPE) initVal.STRING_Data = rhs->expressionValue.STRING_Data ? strdup(rhs->expressionValue.STRING_Data) : NULL;
+        
+    }
+
+      // 4) Insert variable exactly once (even if no init)
+    singleEntryNode* e = createNewEntry(declType, cur->name, SYMBOL_VARIABLE, initVal, hasInit, isConst, NULL);
+    insertInCurrentScope(&gScopeStack, e);
+
+      // 5) Generate assignment quadruple only if initializer exists
+    if (hasInit) 
+    {
+        char* op = exprToOperand(rhs);
+        addQuadruple(OP_ASSN, op, NULL, cur->name);
+        free(op);
+    }
+
+    cur = cur->next;
+    }
+
+    freeDeclList($2);
+    $$ = NULL;
     }
     | CONST DATATYPE IDENTIFIERS {
         type declType = datatypeStringToType($2);
@@ -544,33 +594,105 @@ ASSIGNMENT:
         {
             if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot Assign To const", @1.first_line); // DONE
             else if (!isTypeCompatible(e->identifierType, $3->expressionType)) { }  // isTypeCompatible already reports
-            else {
-                char* rhs = exprToOperand($3);
-                addQuadruple(OP_ASSN, rhs, NULL, $1);
-                free(rhs);
-                updateVariableValueScoped(&gScopeStack, $1, e->identifierType, $3->expressionValue);
+            else 
+            {
+                // char* rhs = exprToOperand($3);
+                // addQuadruple(OP_ASSN, rhs, NULL, $1);
+                // free(rhs);
+                // updateVariableValueScoped(&gScopeStack, $1, e->identifierType, $3->expressionValue);
+                value assigningVal;
+                memset(&assigningVal, 0, sizeof(assigningVal));
+                Expression* rhs = $3;
+                if (isNumeric(e->identifierType) && isNumeric(rhs->expressionType) && e->identifierType != rhs->expressionType) 
+                {
+                    rhs = castTo(rhs, e->identifierType);  
+                }
+
+                if (e->identifierType == INT_TYPE) assigningVal.INT_Data = rhs->expressionValue.INT_Data;
+                else if (e->identifierType == FLOAT_TYPE) assigningVal.FLOAT_Data = rhs->expressionValue.FLOAT_Data;
+                else if (e->identifierType == BOOL_TYPE) assigningVal.BOOL_Data = rhs->expressionValue.BOOL_Data;
+                else if (e->identifierType == CHAR_TYPE) assigningVal.CHAR_Data = rhs->expressionValue.CHAR_Data;
+                else if (e->identifierType == STRING_TYPE) assigningVal.STRING_Data = rhs->expressionValue.STRING_Data ? strdup(rhs->expressionValue.STRING_Data) : NULL;
+                // char* rhs = exprToOperand($3);
+                // addQuadruple(OP_ASSN, rhs, NULL, $1);
+                // free(rhs);
+                updateVariableValueScoped(&gScopeStack, $1, e->identifierType, assigningVal);
             }
         }
     }
     | IDENTIFIER INCREMENT {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
         if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @1.first_line); // DONE
-        else addQuadruple(OP_INC, NULL, NULL, $1);
+        else 
+        {
+            addQuadruple(OP_INC, NULL, NULL, $1);
+            value incrementValue;
+            memset(&incrementValue, 0, sizeof(incrementValue));
+            if (e->identifierType == INT_TYPE)
+                incrementValue.INT_Data = e->currentValue.INT_Data + 1;
+            else if (e->identifierType == FLOAT_TYPE)
+                incrementValue.FLOAT_Data = e->currentValue.FLOAT_Data + 1.0f;
+            else if (e->identifierType == BOOL_TYPE)
+                incrementValue.BOOL_Data = boolToInt(intToBool(e->currentValue.BOOL_Data) + 1);
+            updateVariableValueScoped(&gScopeStack, $1, e->identifierType, incrementValue);
+        }
     }
     | IDENTIFIER DECREMENT {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
         if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @1.first_line); // DONE
-        else addQuadruple(OP_DEC, NULL, NULL, $1);
+        else 
+        {
+            addQuadruple(OP_DEC, NULL, NULL, $1);
+            value decrementValue;
+            memset(&decrementValue, 0, sizeof(decrementValue));
+            if (e->identifierType == INT_TYPE)
+                decrementValue.INT_Data = e->currentValue.INT_Data - 1;
+            else if (e->identifierType == FLOAT_TYPE)
+                decrementValue.FLOAT_Data = e->currentValue.FLOAT_Data - 1.0f;
+            else if (e->identifierType == BOOL_TYPE)
+                decrementValue.BOOL_Data = boolToInt(intToBool(e->currentValue.BOOL_Data) - 1);
+            updateVariableValueScoped(&gScopeStack, $1, e->identifierType, decrementValue);
+        }
     }
     | INCREMENT IDENTIFIER {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $2);
         if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @2.first_line); // DONE
-        else addQuadruple(OP_INC, NULL, NULL, $2);
+        else 
+        {
+            addQuadruple(OP_INC, NULL, NULL, $2);
+            value incrementValue;
+            memset(&incrementValue, 0, sizeof(incrementValue));
+            if (e->identifierType == INT_TYPE)
+                incrementValue.INT_Data = e->currentValue.INT_Data + 1;
+            else if (e->identifierType == FLOAT_TYPE)
+                incrementValue.FLOAT_Data = e->currentValue.FLOAT_Data + 1.0f;
+            else if (e->identifierType == BOOL_TYPE)
+                incrementValue.BOOL_Data = boolToInt(intToBool(e->currentValue.BOOL_Data) + 1);
+            updateVariableValueScoped(&gScopeStack, $2, e->identifierType, incrementValue);
+        }
     }
     | DECREMENT IDENTIFIER {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $2);
         if (!e) reportError(SEMANTIC_ERROR, "Identifier Is Undeclared", @2.first_line); // DONE
-        else addQuadruple(OP_DEC, NULL, NULL, $2);
+        else 
+        {
+            addQuadruple(OP_DEC, NULL, NULL, $2);
+            value decrementValue;
+            memset(&decrementValue, 0, sizeof(decrementValue));
+            if (e->identifierType == INT_TYPE)
+            {
+                decrementValue.INT_Data = e->currentValue.INT_Data - 1;
+            } 
+            else if (e->identifierType == FLOAT_TYPE)
+            {
+                decrementValue.FLOAT_Data = e->currentValue.FLOAT_Data - 1.0f;
+            }
+            else if (e->identifierType == BOOL_TYPE)
+            {
+                decrementValue.BOOL_Data = boolToInt(intToBool(e->currentValue.BOOL_Data) - 1);
+            }
+            updateVariableValueScoped(&gScopeStack, $2, e->identifierType, decrementValue);
+        }
     }
 
     // Error Handling:
@@ -595,27 +717,71 @@ FUNCTION_CALL:
             reportError(SEMANTIC_ERROR, "Call To Undeclared Function", @1.first_line); // DONE
             $$ = makeTempExpr(INT_TYPE, $1);
         }
-        else {
+        else 
+        {
+            fn->isUsed = true;
+
             ArgNode* a = $3;
-            while (a) {
+            Parameter* p = fn->parameterList;
+            int argIndex = 1;
+            char buffer[256] = "\0";
+            while (a && p) 
+            {
+                if (p->Type != a->expr->expressionType) 
+                {
+                    strcat("Type Mismatch In Function Call, ", buffer);
+                    strcat(buffer , "at argument: ");
+                    char buf[32];
+                    snprintf(buf, sizeof(buf), "%d", argIndex);
+                    strcat(buffer , strdup(buf));
+                    strcat(buffer , ".");
+                    strcat(buffer , " Expected ");
+                    strcat(buffer , typeToString(p->Type));
+                    strcat(buffer , " but got ");
+                    strcat(buffer , typeToString(a->expr->expressionType));
+                    reportError(SEMANTIC_ERROR, buffer, @1.first_line);
+                }
+
                 char* op = exprToOperand(a->expr);
                 addQuadruple(OP_PARM, op, NULL, NULL);
                 free(op);
+
                 a = a->next;
+                p = p->Next;
+                argIndex++;
             }
+
+            // If args remain but params finished => too many args
+            if (a && !p) {
+                reportError(SEMANTIC_ERROR, "Too Many Arguments In Function Call", @1.first_line);
+
+                // still emit OP_PARM for remaining args to keep IR consistent (optional but recommended)
+                while (a) {
+                    char* op = exprToOperand(a->expr);
+                    addQuadruple(OP_PARM, op, NULL, NULL);
+                    free(op);
+                    a = a->next;
+                }
+            }
+
+            // If params remain but args finished => too few args
+            if (!a && p) {
+                reportError(SEMANTIC_ERROR, "Too Few Arguments In Function Call", @1.first_line);
+            }
+
+            // Now call
             if (fn->identifierType != VOID_TYPE) {
                 char* t = createTemp();
                 addQuadruple(OP_CALL, $1, NULL, t);
                 $$ = makeTempExpr(fn->identifierType, t);
                 free(t);
-            }
-            else {
+            } else {
                 addQuadruple(OP_CALL, $1, NULL, NULL);
-                value v;
-                memset(&v, 0, sizeof(v));
+                value v; memset(&v, 0, sizeof(v));
                 $$ = makeExpr(VOID_TYPE, v, NULL);
             }
         }
+
         freeArgList($3);
     }
 
@@ -847,6 +1013,8 @@ FOR_HEADER:
 
 ITERATOR:
     IDENTIFIER EQUAL LOGICAL_EXPRESSION {
+        enterScope(&gScopeStack); 
+        comingFromForLoopHeader = true; 
         singleEntryNode* e = lookupAllScopes(&gScopeStack, $1);
         if (!e) reportError(SEMANTIC_ERROR, "Identifier is undeclared (for-init)", @1.first_line);
         else if (e->isReadOnly) reportError(SEMANTIC_ERROR, "Cannot assign to const (for-init)", @1.first_line);
@@ -859,6 +1027,8 @@ ITERATOR:
         }
     }
     | DATATYPE IDENTIFIER EQUAL LOGICAL_EXPRESSION {
+        enterScope(&gScopeStack); 
+        comingFromForLoopHeader = true; 
         type declType = datatypeStringToType($1);
         singleEntryNode* already = lookupCurrentScope(&gScopeStack, $2);
         if (already) reportError(SEMANTIC_ERROR, "Redeclaration in same scope (for-init)", @2.first_line);
@@ -1531,6 +1701,7 @@ PRIMARY_EXPRESSION:
                 $$ = makeTempExpr(INT_TYPE, $1);
             }
             else {
+                fn->isUsed = true;
                 ArgNode* a = $2;
                 while (a) {
                     char* op = exprToOperand(a->expr);
@@ -1561,7 +1732,11 @@ PRIMARY_EXPRESSION:
                 memset(&v, 0, sizeof(v));
                 $$ = makeExpr(INT_TYPE, v, $1);
             }
-            else $$ = makeExpr(e->identifierType, e->currentValue, $1);
+            else 
+            {
+                $$ = makeExpr(e->identifierType, e->currentValue, $1);
+                e->isUsed = true;
+            }
         }
     }
 

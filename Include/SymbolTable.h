@@ -2,7 +2,6 @@
 #define SYMBOL_TABLE_H
 
 #include <stdbool.h>
-#include "Utils.h"
 #include "Parameter.h"
 
 #ifndef TABLE_SIZE

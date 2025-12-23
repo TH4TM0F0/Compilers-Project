@@ -1,0 +1,6 @@
+ADD t1, x, y
+MOV EAX, t1
+RET
+PUSH 3
+CALL add
+MOV t2, EAX

@@ -13,7 +13,7 @@ assigning expressions to variables
 negative nums are not stored ?????????
 
 
-
+for loop int i teb2a fel scope beta3 el if
 
 isUsed flag for functions when func call
 for variables also

@@ -1,6 +1,7 @@
 #include "SymbolTable.h"
 #include "ErrorHandler.h"
 #include "WarningHandler.h"
+#include "Utils.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -560,15 +561,15 @@ bool insertInCurrentScope(scopeStack* s, singleEntryNode* entry)
     return insertSymbolTableEntry(&currentSearchScope->table, entry);
 }
 
-bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type rhsType, value rhsVal)
+bool updateVariableValueScoped(scopeStack* s , const char* identifierName, type rhsType, value rhsVal)
 {
     if (s == NULL || identifierName == NULL)
     {
         return false;
     }
+    singleEntryNode* target = lookupAllScopes(s , identifierName);
     char buffer[512] = "\0";
 
-    singleEntryNode* target = lookupAllScopes(s, identifierName);
     if (target == NULL)
     {
         strcat(buffer, "Identifier (");
@@ -617,42 +618,45 @@ bool updateVariableValueScoped(scopeStack* s, const char* identifierName, type r
             perror("strdup failed while assigning string");
             return false;
         }
+        target->isInitialised = true;
+        return true;
     }
     else
-    { /* For numeric/bool/char etc. union copy is OK */
+    { /* I am now certain that the parser handled the type conversions */
         target->currentValue = rhsVal;
+        target->isInitialised = true;
+        return true;
     }
-
-    target->isInitialised = true;
-    return true;
 }
 
-void dumpScopeStackToFile(scopeStack* s, const char* filename) {
-    FILE* f = fopen(filename, "w");
-    if (!f) 
+void dumpScopeStackToFile(scopeStack *s, const char *filename)
+{
+    FILE *f = fopen(filename, "w");
+    if (!f)
     {
         return;
     }
 
     fprintf(f, "=== Symbol Tables (All Scopes) ===\n");
 
-    scope* cur = s ? s->topScope : NULL;
-    while (cur) 
+    scope *cur = s ? s->topScope : NULL;
+    while (cur)
     {
         fprintf(f, "\n--- Scope Depth: %d ---\n", cur->scopeDepth);
 
-        for (int i = 0; i < TABLE_SIZE; i++) {
-            singleEntryNode* node = cur->table.buckets[i];
-            while (node) {
+        for (int i = 0; i < TABLE_SIZE; i++)
+        {
+            singleEntryNode *node = cur->table.buckets[i];
+            while (node)
+            {
                 fprintf(f,
-                    "Name = %s | Kind = %s | Type = %s | Init = %d | Const = %d | Used = %d ",
-                    node->identifierName ? node->identifierName : "NULL",
-                    (node->varOrFunc == SYMBOL_FUNCTION) ? "FUNCTION" : "VARIABLE",
-                    typeToString(node->identifierType),
-                    node->isInitialised ? 1 : 0,
-                    node->isReadOnly ? 1 : 0,
-                    node->isUsed ? 1 : 0
-                );
+                        "Name = %s | Kind = %s | Type = %s | Init = %d | Const = %d | Used = %d ",
+                        node->identifierName ? node->identifierName : "NULL",
+                        (node->varOrFunc == SYMBOL_FUNCTION) ? "FUNCTION" : "VARIABLE",
+                        typeToString(node->identifierType),
+                        node->isInitialised ? 1 : 0,
+                        node->isReadOnly ? 1 : 0,
+                        node->isUsed ? 1 : 0);
                 if (node->isInitialised && node->varOrFunc == SYMBOL_VARIABLE)
                 {
                     fprintf(f,

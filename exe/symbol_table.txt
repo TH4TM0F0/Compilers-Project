@@ -1,0 +1,4 @@
+=== Symbol Tables (All Scopes) ===
+
+--- Scope Depth: 0 ---
+Name = add | Kind = FUNCTION | Type = int | Init = 0 | Const = 0 | Used = 1 
