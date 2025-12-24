@@ -1,5 +1,0 @@
-=== Generated Quadruples ===
-[0] (IF_FALSE, 1, NONE, L1)
-[1] (+, first, second, t1)
-[2] (RETURN, t1, NONE, NONE)
-[3] (LABEL, NONE, NONE, L1)

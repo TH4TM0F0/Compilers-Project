@@ -1,3 +1,0 @@
-=== Symbol Tables (All Scopes) ===
-
---- Scope Depth: 0 ---
