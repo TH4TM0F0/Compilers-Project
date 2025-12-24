@@ -870,21 +870,21 @@ static const yytype_int16 yyrline[] =
      393,   397,   401,   405,   409,   416,   416,   443,   504,   538,
      543,   548,   553,   561,   562,   563,   564,   567,   572,   577,
      582,   590,   623,   640,   657,   674,   699,   703,   707,   714,
-     789,   793,   800,   806,   806,   818,   825,   834,   838,   842,
-     846,   853,   863,   870,   881,   885,   889,   893,   900,   912,
-     916,   920,   924,   928,   932,   936,   943,   952,   963,   970,
-     984,   988,   992,   996,  1000,  1004,  1008,  1015,  1029,  1050,
-    1054,  1058,  1062,  1069,  1080,  1080,  1069,  1094,  1101,  1102,
-    1106,  1107,  1111,  1111,  1132,  1136,  1143,  1143,  1150,  1157,
-    1163,  1169,  1175,  1185,  1191,  1200,  1206,  1220,  1220,  1264,
-    1268,  1272,  1276,  1283,  1284,  1288,  1291,  1296,  1301,  1306,
-    1314,  1315,  1319,  1320,  1323,  1328,  1336,  1346,  1349,  1353,
-    1360,  1370,  1373,  1377,  1384,  1394,  1404,  1407,  1411,  1415,
-    1419,  1426,  1436,  1446,  1456,  1466,  1469,  1473,  1477,  1481,
-    1485,  1489,  1493,  1497,  1504,  1515,  1526,  1529,  1533,  1537,
-    1544,  1555,  1566,  1576,  1579,  1583,  1587,  1591,  1595,  1599,
-    1606,  1619,  1622,  1626,  1633,  1641,  1649,  1652,  1656,  1663,
-    1669,  1675,  1681,  1687,  1693,  1696,  1744,  1749,  1757,  1758
+     787,   791,   798,   804,   804,   816,   823,   832,   836,   840,
+     844,   851,   861,   868,   879,   883,   887,   891,   898,   910,
+     914,   918,   922,   926,   930,   934,   941,   950,   961,   968,
+     982,   986,   990,   994,   998,  1002,  1006,  1013,  1027,  1048,
+    1052,  1056,  1060,  1067,  1078,  1078,  1067,  1092,  1099,  1100,
+    1104,  1105,  1109,  1109,  1130,  1134,  1141,  1141,  1148,  1155,
+    1161,  1167,  1173,  1183,  1189,  1198,  1204,  1218,  1218,  1262,
+    1266,  1270,  1274,  1281,  1282,  1286,  1289,  1294,  1299,  1304,
+    1312,  1313,  1317,  1318,  1321,  1326,  1334,  1344,  1347,  1351,
+    1358,  1368,  1371,  1375,  1382,  1392,  1402,  1405,  1409,  1413,
+    1417,  1424,  1434,  1444,  1454,  1464,  1467,  1471,  1475,  1479,
+    1483,  1487,  1491,  1495,  1502,  1513,  1524,  1527,  1531,  1535,
+    1542,  1553,  1564,  1574,  1577,  1581,  1585,  1589,  1593,  1597,
+    1604,  1617,  1620,  1624,  1631,  1639,  1647,  1650,  1654,  1661,
+    1667,  1673,  1679,  1685,  1691,  1694,  1742,  1747,  1755,  1756
 };
 #endif
 
@@ -2121,7 +2121,7 @@ yyreduce:
             char* rhs = exprToOperand(cur->initExpr);
             addQuadruple(OP_ASSN, rhs, NULL, cur->name);
             free(rhs);
-            updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
+            //updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
             cur = cur->next;
         }
         freeDeclList((yyvsp[0].declList));
@@ -2408,24 +2408,19 @@ yyreduce:
             ArgNode* a = (yyvsp[-1].argList);
             Parameter* p = fn->parameterList;
             int argIndex = 1;
-            char buffer[256] = "\0";
-            while (a && p) 
+
+            while (a && p)
             {
-                if (p->Type != a->expr->expressionType) 
+                if (p->Type != a->expr->expressionType)
                 {
-                    strcat("Type Mismatch In Function Call, ", buffer);
-                    strcat(buffer , "at argument: ");
-                    char buf[32];
-                    snprintf(buf, sizeof(buf), "%d", argIndex);
-                    strcat(buffer , strdup(buf));
-                    strcat(buffer , ".");
-                    strcat(buffer , " Expected ");
-                    strcat(buffer , typeToString(p->Type));
-                    strcat(buffer , " but got ");
-                    strcat(buffer , typeToString(a->expr->expressionType));
+                    char buffer[256];
+                    snprintf(buffer, sizeof(buffer),
+                            "Type Mismatch In Function Call at argument %d. Expected %s but got %s",
+                            argIndex, typeToString(p->Type), typeToString(a->expr->expressionType));
                     reportError(SEMANTIC_ERROR, buffer, (yylsp[-3]).first_line);
                 }
 
+                // emit param anyway (optional but common)
                 char* op = exprToOperand(a->expr);
                 addQuadruple(OP_PARM, op, NULL, NULL);
                 free(op);
@@ -2435,12 +2430,13 @@ yyreduce:
                 argIndex++;
             }
 
-            // If args remain but params finished => too many args
-            if (a && !p) {
+            // too many args
+            if (a && !p)
+            {
                 reportError(SEMANTIC_ERROR, "Too Many Arguments In Function Call", (yylsp[-3]).first_line);
 
-                // still emit OP_PARM for remaining args to keep IR consistent (optional but recommended)
-                while (a) {
+                while (a)
+                {
                     char* op = exprToOperand(a->expr);
                     addQuadruple(OP_PARM, op, NULL, NULL);
                     free(op);
@@ -2448,10 +2444,12 @@ yyreduce:
                 }
             }
 
-            // If params remain but args finished => too few args
-            if (!a && p) {
+            // too few args
+            if (!a && p)
+            {
                 reportError(SEMANTIC_ERROR, "Too Few Arguments In Function Call", (yylsp[-3]).first_line);
             }
+
 
             // Now call
             if (fn->identifierType != VOID_TYPE) {
@@ -2468,69 +2466,69 @@ yyreduce:
 
         freeArgList((yyvsp[-1].argList));
     }
-#line 2472 "parser.tab.c"
+#line 2470 "parser.tab.c"
     break;
 
   case 50: /* FUNCTION_CALL: IDENTIFIER LEFT_ROUND_BRACKET ARGUMENT_LIST error  */
-#line 789 "parser.y"
+#line 787 "parser.y"
                                                         {
         reportError(SYNTAX_ERROR, "Expected ')' In Function Call", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2481 "parser.tab.c"
+#line 2479 "parser.tab.c"
     break;
 
   case 51: /* FUNCTION_CALL: IDENTIFIER error ARGUMENT_LIST RIGHT_ROUND_BRACKET  */
-#line 793 "parser.y"
+#line 791 "parser.y"
                                                          {
         reportError(SYNTAX_ERROR, "Expected '(' In Function Call", (yylsp[-2]).first_line); // DONE
         yyerrok;
     }
-#line 2490 "parser.tab.c"
+#line 2488 "parser.tab.c"
     break;
 
   case 52: /* IF_STATEMENT: IF_HEAD BLOCK  */
-#line 800 "parser.y"
+#line 798 "parser.y"
                                         {
         addQuadruple(OP_LABEL, NULL, NULL, (yyvsp[-1].codeUtils).false_label);
         free((yyvsp[-1].codeUtils).false_label);
         free((yyvsp[-1].codeUtils).end_label);
         (yyval.codeUtils).code = NULL;
     }
-#line 2501 "parser.tab.c"
+#line 2499 "parser.tab.c"
     break;
 
   case 53: /* $@2: %empty  */
-#line 806 "parser.y"
+#line 804 "parser.y"
                     {
         addQuadruple(OP_GOTO, NULL, NULL, (yyvsp[-1].codeUtils).end_label);
         addQuadruple(OP_LABEL, NULL, NULL, (yyvsp[-1].codeUtils).false_label);
     }
-#line 2510 "parser.tab.c"
+#line 2508 "parser.tab.c"
     break;
 
   case 54: /* IF_STATEMENT: IF_HEAD BLOCK $@2 ELSE BLOCK  */
-#line 810 "parser.y"
+#line 808 "parser.y"
                {
         addQuadruple(OP_LABEL, NULL, NULL, (yyvsp[-4].codeUtils).end_label);
         free((yyvsp[-4].codeUtils).false_label);
         free((yyvsp[-4].codeUtils).end_label);
         (yyval.codeUtils).code = NULL;
     }
-#line 2521 "parser.tab.c"
+#line 2519 "parser.tab.c"
     break;
 
   case 55: /* IF_STATEMENT: IF_HEAD error  */
-#line 818 "parser.y"
+#line 816 "parser.y"
                     {
         reportError(SYNTAX_ERROR, "Expected If Block '{ }' After 'if (...)'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2530 "parser.tab.c"
+#line 2528 "parser.tab.c"
     break;
 
   case 56: /* IF_HEAD: IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET  */
-#line 825 "parser.y"
+#line 823 "parser.y"
                                                                  {
         (yyval.codeUtils).false_label = createLabel();
         (yyval.codeUtils).end_label = createLabel();
@@ -2538,47 +2536,47 @@ yyreduce:
         addQuadruple(OP_IFFALSE, cond, NULL, (yyval.codeUtils).false_label);
         free(cond);
     }
-#line 2542 "parser.tab.c"
+#line 2540 "parser.tab.c"
     break;
 
   case 57: /* IF_HEAD: IF error  */
-#line 834 "parser.y"
+#line 832 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Expected '(' After 'if'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2551 "parser.tab.c"
+#line 2549 "parser.tab.c"
     break;
 
   case 58: /* IF_HEAD: IF LEFT_ROUND_BRACKET error  */
-#line 838 "parser.y"
+#line 836 "parser.y"
                                   {
         reportError(SYNTAX_ERROR, "Expected Condition After '('", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2560 "parser.tab.c"
+#line 2558 "parser.tab.c"
     break;
 
   case 59: /* IF_HEAD: IF LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error  */
-#line 842 "parser.y"
+#line 840 "parser.y"
                                                      {
         reportError(SYNTAX_ERROR, "Expected ')' After Condition", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2569 "parser.tab.c"
+#line 2567 "parser.tab.c"
     break;
 
   case 60: /* IF_HEAD: IF LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET  */
-#line 846 "parser.y"
+#line 844 "parser.y"
                                                       {
         reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'if'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2578 "parser.tab.c"
+#line 2576 "parser.tab.c"
     break;
 
   case 61: /* WHILE_STATEMENT: WHILE_HEAD BLOCK  */
-#line 853 "parser.y"
+#line 851 "parser.y"
                      {
         pop_loop_labels();
         addQuadruple(OP_GOTO, NULL, NULL, (yyvsp[-1].codeUtils).start_label);
@@ -2587,20 +2585,20 @@ yyreduce:
         free((yyvsp[-1].codeUtils).end_label);
         (yyval.codeUtils).code = NULL;
     }
-#line 2591 "parser.tab.c"
+#line 2589 "parser.tab.c"
     break;
 
   case 62: /* WHILE_STATEMENT: WHILE_HEAD error  */
-#line 863 "parser.y"
+#line 861 "parser.y"
                        {
         reportError(SYNTAX_ERROR, "Expected While Block '{ }' After 'while'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2600 "parser.tab.c"
+#line 2598 "parser.tab.c"
     break;
 
   case 63: /* WHILE_HEAD: WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET  */
-#line 870 "parser.y"
+#line 868 "parser.y"
                                                                     {
         (yyval.codeUtils).start_label = createLabel();
         (yyval.codeUtils).end_label   = createLabel();
@@ -2610,47 +2608,47 @@ yyreduce:
         free(cond);
         push_loop_labels((yyval.codeUtils).end_label, (yyval.codeUtils).start_label);
     }
-#line 2614 "parser.tab.c"
+#line 2612 "parser.tab.c"
     break;
 
   case 64: /* WHILE_HEAD: WHILE error  */
-#line 881 "parser.y"
+#line 879 "parser.y"
                   {
         reportError(SYNTAX_ERROR, "Expected '(' After 'while'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2623 "parser.tab.c"
+#line 2621 "parser.tab.c"
     break;
 
   case 65: /* WHILE_HEAD: WHILE LEFT_ROUND_BRACKET error  */
-#line 885 "parser.y"
+#line 883 "parser.y"
                                      {
         reportError(SYNTAX_ERROR, "Expected Condition After '('", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2632 "parser.tab.c"
+#line 2630 "parser.tab.c"
     break;
 
   case 66: /* WHILE_HEAD: WHILE LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error  */
-#line 889 "parser.y"
+#line 887 "parser.y"
                                                         {
         reportError(SYNTAX_ERROR, "Expected ')' After Condition", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2641 "parser.tab.c"
+#line 2639 "parser.tab.c"
     break;
 
   case 67: /* WHILE_HEAD: WHILE LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET  */
-#line 893 "parser.y"
+#line 891 "parser.y"
                                                          {
         reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'while'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2650 "parser.tab.c"
+#line 2648 "parser.tab.c"
     break;
 
   case 68: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET SEMI_COLON  */
-#line 900 "parser.y"
+#line 898 "parser.y"
                                                                                                  {
         pop_loop_labels();
         char* cond = exprToOperand((yyvsp[-2].expr));
@@ -2661,85 +2659,85 @@ yyreduce:
         free((yyvsp[-6].codeUtils).end_label);
         (yyval.codeUtils).code = NULL;
     }
-#line 2665 "parser.tab.c"
+#line 2663 "parser.tab.c"
     break;
 
   case 69: /* REPEAT_STATEMENT: REPEAT_HEAD error  */
-#line 912 "parser.y"
+#line 910 "parser.y"
                         {
         reportError(SYNTAX_ERROR, "Expected Repeat Block '{ }' After 'repeat'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2674 "parser.tab.c"
+#line 2672 "parser.tab.c"
     break;
 
   case 70: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK error  */
-#line 916 "parser.y"
+#line 914 "parser.y"
                               {
         reportError(SYNTAX_ERROR, "Expected 'until (...) ;' After Repeat Block", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2683 "parser.tab.c"
+#line 2681 "parser.tab.c"
     break;
 
   case 71: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK UNTIL error  */
-#line 920 "parser.y"
+#line 918 "parser.y"
                                     {
         reportError(SYNTAX_ERROR, "Expected '(' After 'until'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2692 "parser.tab.c"
+#line 2690 "parser.tab.c"
     break;
 
   case 72: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET error  */
-#line 924 "parser.y"
+#line 922 "parser.y"
                                                        {
         reportError(SYNTAX_ERROR, "Expected Condition After '('", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2701 "parser.tab.c"
+#line 2699 "parser.tab.c"
     break;
 
   case 73: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error  */
-#line 928 "parser.y"
+#line 926 "parser.y"
                                                                            {
         reportError(SYNTAX_ERROR, "Expected ')' After Condition", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2710 "parser.tab.c"
+#line 2708 "parser.tab.c"
     break;
 
   case 74: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET  */
-#line 932 "parser.y"
+#line 930 "parser.y"
                                                                            {
         reportError(SYNTAX_ERROR, "Expected Condition Inside '( )' After 'until'", (yylsp[-2]).first_line); // DONE
         yyerrok;
     }
-#line 2719 "parser.tab.c"
+#line 2717 "parser.tab.c"
     break;
 
   case 75: /* REPEAT_STATEMENT: REPEAT_HEAD BLOCK UNTIL LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET error  */
-#line 936 "parser.y"
+#line 934 "parser.y"
                                                                                                {
         reportError(SYNTAX_ERROR, "Expected ';' After 'until (...)'", (yylsp[-2]).first_line); // DONE
         yyerrok;
     }
-#line 2728 "parser.tab.c"
+#line 2726 "parser.tab.c"
     break;
 
   case 76: /* REPEAT_HEAD: REPEAT  */
-#line 943 "parser.y"
+#line 941 "parser.y"
            {
         (yyval.codeUtils).start_label = createLabel();
         (yyval.codeUtils).end_label   = createLabel();
         addQuadruple(OP_LABEL, NULL, NULL, (yyval.codeUtils).start_label);
         push_loop_labels((yyval.codeUtils).end_label, (yyval.codeUtils).start_label);
     }
-#line 2739 "parser.tab.c"
+#line 2737 "parser.tab.c"
     break;
 
   case 77: /* FOR_STATEMENT: FOR_HEADER BLOCK  */
-#line 952 "parser.y"
+#line 950 "parser.y"
                      {
         pop_loop_labels();
         addQuadruple(OP_GOTO, NULL, NULL, (yyvsp[-1].codeUtils).incr_label);
@@ -2749,20 +2747,20 @@ yyreduce:
         free((yyvsp[-1].codeUtils).end_label);
         (yyval.codeUtils).code = NULL;
     }
-#line 2753 "parser.tab.c"
+#line 2751 "parser.tab.c"
     break;
 
   case 78: /* FOR_STATEMENT: FOR_HEADER error  */
-#line 963 "parser.y"
+#line 961 "parser.y"
                        {
         reportError(SYNTAX_ERROR, "Expected For Block '{ }' After 'for'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2762 "parser.tab.c"
+#line 2760 "parser.tab.c"
     break;
 
   case 79: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT RIGHT_ROUND_BRACKET  */
-#line 970 "parser.y"
+#line 968 "parser.y"
                                                                                                             {
         (yyval.codeUtils).cond_label = createLabel();
         (yyval.codeUtils).incr_label = createLabel();
@@ -2775,74 +2773,74 @@ yyreduce:
         free(cond);
         push_loop_labels((yyval.codeUtils).end_label, (yyval.codeUtils).incr_label);
     }
-#line 2779 "parser.tab.c"
+#line 2777 "parser.tab.c"
     break;
 
   case 80: /* FOR_HEADER: FOR error  */
-#line 984 "parser.y"
+#line 982 "parser.y"
                 {
         reportError(SYNTAX_ERROR, "Expected '(' After for", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2788 "parser.tab.c"
+#line 2786 "parser.tab.c"
     break;
 
   case 81: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET error  */
-#line 988 "parser.y"
+#line 986 "parser.y"
                                    {
         reportError(SYNTAX_ERROR, "Expected Iterator After '('", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2797 "parser.tab.c"
+#line 2795 "parser.tab.c"
     break;
 
   case 82: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET ITERATOR error  */
-#line 992 "parser.y"
+#line 990 "parser.y"
                                             {
         reportError(SYNTAX_ERROR, "Expected ';' After Iterator", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2806 "parser.tab.c"
+#line 2804 "parser.tab.c"
     break;
 
   case 83: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON error  */
-#line 996 "parser.y"
+#line 994 "parser.y"
                                                        {
         reportError(SYNTAX_ERROR, "Expected Condition After ';'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2815 "parser.tab.c"
+#line 2813 "parser.tab.c"
     break;
 
   case 84: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION error  */
-#line 1000 "parser.y"
+#line 998 "parser.y"
                                                                           {
         reportError(SYNTAX_ERROR, "Expected ';' After Condition", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2824 "parser.tab.c"
+#line 2822 "parser.tab.c"
     break;
 
   case 85: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON error  */
-#line 1004 "parser.y"
+#line 1002 "parser.y"
                                                                                      {
         reportError(SYNTAX_ERROR, "Expected Loop Step After ';'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2833 "parser.tab.c"
+#line 2831 "parser.tab.c"
     break;
 
   case 86: /* FOR_HEADER: FOR LEFT_ROUND_BRACKET ITERATOR SEMI_COLON LOGICAL_EXPRESSION SEMI_COLON ASSIGNMENT error  */
-#line 1008 "parser.y"
+#line 1006 "parser.y"
                                                                                                 {
         reportError(SYNTAX_ERROR, "Expected ')' After Loop Step", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2842 "parser.tab.c"
+#line 2840 "parser.tab.c"
     break;
 
   case 87: /* ITERATOR: IDENTIFIER EQUAL LOGICAL_EXPRESSION  */
-#line 1015 "parser.y"
+#line 1013 "parser.y"
                                         {
         enterScope(&gScopeStack); 
         comingFromForLoopHeader = true; 
@@ -2857,11 +2855,11 @@ yyreduce:
             updateVariableValueScoped(&gScopeStack, (yyvsp[-2].stringData), e->identifierType, (yyvsp[0].expr)->expressionValue);
         }
     }
-#line 2861 "parser.tab.c"
+#line 2859 "parser.tab.c"
     break;
 
   case 88: /* ITERATOR: DATATYPE IDENTIFIER EQUAL LOGICAL_EXPRESSION  */
-#line 1029 "parser.y"
+#line 1027 "parser.y"
                                                    {
         enterScope(&gScopeStack); 
         comingFromForLoopHeader = true; 
@@ -2881,47 +2879,47 @@ yyreduce:
             }
         }
     }
-#line 2885 "parser.tab.c"
+#line 2883 "parser.tab.c"
     break;
 
   case 89: /* ITERATOR: IDENTIFIER EQUAL error  */
-#line 1050 "parser.y"
+#line 1048 "parser.y"
                              {
         reportError(SYNTAX_ERROR, "Expected Expression After '='", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2894 "parser.tab.c"
+#line 2892 "parser.tab.c"
     break;
 
   case 90: /* ITERATOR: DATATYPE error  */
-#line 1054 "parser.y"
+#line 1052 "parser.y"
                      {
         reportError(SYNTAX_ERROR, "Expected Identifier After Datatype", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2903 "parser.tab.c"
+#line 2901 "parser.tab.c"
     break;
 
   case 91: /* ITERATOR: DATATYPE IDENTIFIER error  */
-#line 1058 "parser.y"
+#line 1056 "parser.y"
                                 {
         reportError(SYNTAX_ERROR, "Expected '=' After Identifier", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 2912 "parser.tab.c"
+#line 2910 "parser.tab.c"
     break;
 
   case 92: /* ITERATOR: DATATYPE IDENTIFIER EQUAL error  */
-#line 1062 "parser.y"
+#line 1060 "parser.y"
                                       {
         reportError(SYNTAX_ERROR, "Expected Expression After '='", (yylsp[-2]).first_line); // DONE
         yyerrok;
     }
-#line 2921 "parser.tab.c"
+#line 2919 "parser.tab.c"
     break;
 
   case 93: /* $@3: %empty  */
-#line 1069 "parser.y"
+#line 1067 "parser.y"
                                                                      {
         char* t  = createTemp();
         char* sw = exprToOperand((yyvsp[-1].expr));
@@ -2933,23 +2931,23 @@ yyreduce:
         default_label = createLabel();
         push_loop_labels(current_switch_end_label, NULL);
     }
-#line 2937 "parser.tab.c"
+#line 2935 "parser.tab.c"
     break;
 
   case 94: /* $@4: %empty  */
-#line 1080 "parser.y"
+#line 1078 "parser.y"
                        { enterScope(&gScopeStack); }
-#line 2943 "parser.tab.c"
+#line 2941 "parser.tab.c"
     break;
 
   case 95: /* $@5: %empty  */
-#line 1080 "parser.y"
+#line 1078 "parser.y"
                                                                                                 { exitScope(&gScopeStack); }
-#line 2949 "parser.tab.c"
+#line 2947 "parser.tab.c"
     break;
 
   case 96: /* SWITCH_STATEMENT: SWITCH LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET $@3 LEFT_CURLY_BRACKET $@4 CASES DEFAULT_CASE_OPT RIGHT_CURLY_BRACKET $@5  */
-#line 1080 "parser.y"
+#line 1078 "parser.y"
                                                                                                                              {
         addQuadruple(OP_LABEL, NULL, NULL, default_label);
         addQuadruple(OP_LABEL, NULL, NULL, current_switch_end_label);
@@ -2962,32 +2960,32 @@ yyreduce:
         default_label = NULL;
         (yyval.codeUtils).code = NULL;
     }
-#line 2966 "parser.tab.c"
+#line 2964 "parser.tab.c"
     break;
 
   case 97: /* SWITCH_STATEMENT: SWITCH error  */
-#line 1094 "parser.y"
+#line 1092 "parser.y"
                    {
         reportError(SYNTAX_ERROR, "Expected '(' After 'switch'", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 2975 "parser.tab.c"
+#line 2973 "parser.tab.c"
     break;
 
   case 98: /* DEFAULT_CASE_OPT: %empty  */
-#line 1101 "parser.y"
+#line 1099 "parser.y"
                 { (yyval.voidData) = NULL; }
-#line 2981 "parser.tab.c"
+#line 2979 "parser.tab.c"
     break;
 
   case 100: /* CASES: %empty  */
-#line 1106 "parser.y"
+#line 1104 "parser.y"
                 { (yyval.voidData) = NULL; }
-#line 2987 "parser.tab.c"
+#line 2985 "parser.tab.c"
     break;
 
   case 102: /* $@6: %empty  */
-#line 1111 "parser.y"
+#line 1109 "parser.y"
                       {
         current_case_next_label = createLabel();
         if (!current_switch_var) reportError(SEMANTIC_ERROR, "case used outside switch", (yylsp[-1]).first_line);
@@ -3000,11 +2998,11 @@ yyreduce:
             free(tcmp);
         }
     }
-#line 3004 "parser.tab.c"
+#line 3002 "parser.tab.c"
     break;
 
   case 103: /* SINGLE_CASE: CASE PRIMARY_CASE $@6 COLON STATEMENTS  */
-#line 1123 "parser.y"
+#line 1121 "parser.y"
                      {
         if (current_switch_end_label) addQuadruple(OP_GOTO, NULL, NULL, current_switch_end_label);
         addQuadruple(OP_LABEL, NULL, NULL, current_case_next_label);
@@ -3012,86 +3010,86 @@ yyreduce:
         current_case_next_label = NULL;
         (yyval.voidData) = NULL;
     }
-#line 3016 "parser.tab.c"
+#line 3014 "parser.tab.c"
     break;
 
   case 104: /* SINGLE_CASE: CASE error  */
-#line 1132 "parser.y"
+#line 1130 "parser.y"
                  {
         reportError(SYNTAX_ERROR, "Expected Case Value After 'case'", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3025 "parser.tab.c"
+#line 3023 "parser.tab.c"
     break;
 
   case 105: /* SINGLE_CASE: CASE PRIMARY_CASE error  */
-#line 1136 "parser.y"
+#line 1134 "parser.y"
                               {
         reportError(SYNTAX_ERROR, "Expected ':' After Case Value", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3034 "parser.tab.c"
+#line 3032 "parser.tab.c"
     break;
 
   case 106: /* $@7: %empty  */
-#line 1143 "parser.y"
+#line 1141 "parser.y"
                   { if (default_label) addQuadruple(OP_LABEL, NULL, NULL, default_label); }
-#line 3040 "parser.tab.c"
+#line 3038 "parser.tab.c"
     break;
 
   case 107: /* DEFAULT_CASE: DEFAULT COLON $@7 STATEMENTS  */
-#line 1144 "parser.y"
+#line 1142 "parser.y"
                {
         if (current_switch_end_label) addQuadruple(OP_GOTO, NULL, NULL, current_switch_end_label);
         (yyval.voidData) = NULL;
     }
-#line 3049 "parser.tab.c"
+#line 3047 "parser.tab.c"
     break;
 
   case 108: /* DEFAULT_CASE: DEFAULT error  */
-#line 1150 "parser.y"
+#line 1148 "parser.y"
                     {
         reportError(SYNTAX_ERROR, "Expected ':' After 'default'", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3058 "parser.tab.c"
+#line 3056 "parser.tab.c"
     break;
 
   case 109: /* PRIMARY_CASE: INTVALUE  */
-#line 1157 "parser.y"
+#line 1155 "parser.y"
              {
         value v;
         memset(&v, 0, sizeof(v));
         v.INT_Data = (yyvsp[0].intData);
         (yyval.expr) = makeExpr(INT_TYPE, v, NULL);
     }
-#line 3069 "parser.tab.c"
+#line 3067 "parser.tab.c"
     break;
 
   case 110: /* PRIMARY_CASE: CHARVALUE  */
-#line 1163 "parser.y"
+#line 1161 "parser.y"
                 {
         value v;
         memset(&v, 0, sizeof(v));
         v.CHAR_Data = (yyvsp[0].charData);
         (yyval.expr) = makeExpr(CHAR_TYPE, v, NULL);
     }
-#line 3080 "parser.tab.c"
+#line 3078 "parser.tab.c"
     break;
 
   case 111: /* PRIMARY_CASE: BOOLVALUE  */
-#line 1169 "parser.y"
+#line 1167 "parser.y"
                 {
         value v;
         memset(&v, 0, sizeof(v));
         v.BOOL_Data = (yyvsp[0].intData);
         (yyval.expr) = makeExpr(BOOL_TYPE, v, NULL);
     }
-#line 3091 "parser.tab.c"
+#line 3089 "parser.tab.c"
     break;
 
   case 112: /* PRIMARY_CASE: IDENTIFIER  */
-#line 1175 "parser.y"
+#line 1173 "parser.y"
                  {
         singleEntryNode* e = lookupAllScopes(&gScopeStack, (yyvsp[0].stringData));
         if (!e) {
@@ -3102,44 +3100,44 @@ yyreduce:
         }
         else (yyval.expr) = makeExpr(e->identifierType, e->currentValue, (yyvsp[0].stringData));
     }
-#line 3106 "parser.tab.c"
+#line 3104 "parser.tab.c"
     break;
 
   case 113: /* PRIMARY_CASE: FLOATVALUE  */
-#line 1185 "parser.y"
+#line 1183 "parser.y"
                  {
         value v;
         memset(&v, 0, sizeof(v));
         v.FLOAT_Data = (yyvsp[0].floatData);
         (yyval.expr) = makeExpr(FLOAT_TYPE, v, NULL);
     }
-#line 3117 "parser.tab.c"
+#line 3115 "parser.tab.c"
     break;
 
   case 114: /* PRIMARY_CASE: STRINGVALUE  */
-#line 1191 "parser.y"
+#line 1189 "parser.y"
                   {
         value v;
         memset(&v, 0, sizeof(v));
         v.STRING_Data = strdup((yyvsp[0].stringData));
         (yyval.expr) = makeExpr(STRING_TYPE, v, NULL);
     }
-#line 3128 "parser.tab.c"
+#line 3126 "parser.tab.c"
     break;
 
   case 115: /* RETURN_STATEMENT: RETURN  */
-#line 1200 "parser.y"
+#line 1198 "parser.y"
            {
         if (inFunctionScope == false) reportError(SEMANTIC_ERROR, "Return used outside function", (yylsp[0]).first_line);
         if (current_function_return_type != VOID_TYPE) reportError(SEMANTIC_ERROR, "Missing return value", (yylsp[0]).first_line);
         else seen1ReturnStatement = true;
         addQuadruple(OP_RETURN, NULL, NULL, NULL);
     }
-#line 3139 "parser.tab.c"
+#line 3137 "parser.tab.c"
     break;
 
   case 116: /* RETURN_STATEMENT: RETURN LOGICAL_EXPRESSION  */
-#line 1206 "parser.y"
+#line 1204 "parser.y"
                                 {
         if (inFunctionScope == false) reportError(SEMANTIC_ERROR, "Return used outside function", (yylsp[-1]).first_line);
         if (current_function_return_type == VOID_TYPE && gScopeStack.topScope->scopeDepth != 0) reportError(SEMANTIC_ERROR, "Returning a value from void function", (yylsp[-1]).first_line);
@@ -3151,11 +3149,11 @@ yyreduce:
             free(rv);
         }
     }
-#line 3155 "parser.tab.c"
+#line 3153 "parser.tab.c"
     break;
 
   case 117: /* $@8: %empty  */
-#line 1220 "parser.y"
+#line 1218 "parser.y"
                                                                                        {
         seen1ReturnStatement = false;
         inFunctionScope = true;
@@ -3190,11 +3188,11 @@ yyreduce:
         pending_params_should_insert = true;
 
     }
-#line 3194 "parser.tab.c"
+#line 3192 "parser.tab.c"
     break;
 
   case 118: /* FUNCTION_DEFINITION_IMPLEMENTATION: FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST RIGHT_ROUND_BRACKET $@8 BLOCK  */
-#line 1254 "parser.y"
+#line 1252 "parser.y"
           {
         // exitScope(&gScopeStack); /* commented to match the commented enter scope above */
         if (inFunctionScope) {
@@ -3203,149 +3201,149 @@ yyreduce:
         }
         current_function_return_type = VOID_TYPE;
     }
-#line 3207 "parser.tab.c"
+#line 3205 "parser.tab.c"
     break;
 
   case 119: /* FUNCTION_DEFINITION_IMPLEMENTATION: FUNCTION error  */
-#line 1264 "parser.y"
+#line 1262 "parser.y"
                      {
         reportError(SYNTAX_ERROR, "Expected Datatype After 'function'", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3216 "parser.tab.c"
+#line 3214 "parser.tab.c"
     break;
 
   case 120: /* FUNCTION_DEFINITION_IMPLEMENTATION: FUNCTION DATATYPE error  */
-#line 1268 "parser.y"
+#line 1266 "parser.y"
                               {
         reportError(SYNTAX_ERROR, "Expected Identifier After Function Datatype", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3225 "parser.tab.c"
+#line 3223 "parser.tab.c"
     break;
 
   case 121: /* FUNCTION_DEFINITION_IMPLEMENTATION: FUNCTION DATATYPE IDENTIFIER error  */
-#line 1272 "parser.y"
+#line 1270 "parser.y"
                                          {
         reportError(SYNTAX_ERROR, "Expected '(' After Function Name", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3234 "parser.tab.c"
+#line 3232 "parser.tab.c"
     break;
 
   case 122: /* FUNCTION_DEFINITION_IMPLEMENTATION: FUNCTION DATATYPE IDENTIFIER LEFT_ROUND_BRACKET PARAMETER_LIST error  */
-#line 1276 "parser.y"
+#line 1274 "parser.y"
                                                                            {
         reportError(SYNTAX_ERROR, "Expected ')' After Parameters", (yylsp[-1]).first_line);
         yyerrok;
     }
-#line 3243 "parser.tab.c"
+#line 3241 "parser.tab.c"
     break;
 
   case 123: /* PARAMETER_LIST: %empty  */
-#line 1283 "parser.y"
+#line 1281 "parser.y"
                 { (yyval.parameterList) = NULL; }
-#line 3249 "parser.tab.c"
+#line 3247 "parser.tab.c"
     break;
 
   case 124: /* PARAMETER_LIST: PARAM_LIST_NONEMPTY  */
-#line 1284 "parser.y"
+#line 1282 "parser.y"
                           { (yyval.parameterList) = (yyvsp[0].parameterList); }
-#line 3255 "parser.tab.c"
+#line 3253 "parser.tab.c"
     break;
 
   case 125: /* PARAM_LIST_NONEMPTY: DATATYPE IDENTIFIER  */
-#line 1288 "parser.y"
+#line 1286 "parser.y"
                         {
         (yyval.parameterList) = makeParam(datatypeStringToType((yyvsp[-1].stringData)), (yyvsp[0].stringData));
     }
-#line 3263 "parser.tab.c"
+#line 3261 "parser.tab.c"
     break;
 
   case 126: /* PARAM_LIST_NONEMPTY: PARAM_LIST_NONEMPTY COMMA DATATYPE IDENTIFIER  */
-#line 1291 "parser.y"
+#line 1289 "parser.y"
                                                     {
         (yyval.parameterList) = appendParam((yyvsp[-3].parameterList), makeParam(datatypeStringToType((yyvsp[-1].stringData)), (yyvsp[0].stringData)));
     }
-#line 3271 "parser.tab.c"
+#line 3269 "parser.tab.c"
     break;
 
   case 127: /* PARAM_LIST_NONEMPTY: DATATYPE error  */
-#line 1296 "parser.y"
+#line 1294 "parser.y"
                      {
         reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", (yylsp[-1]).first_line);
         yyerrok;
         (yyval.parameterList) = NULL;
     }
-#line 3281 "parser.tab.c"
+#line 3279 "parser.tab.c"
     break;
 
   case 128: /* PARAM_LIST_NONEMPTY: PARAM_LIST_NONEMPTY COMMA error  */
-#line 1301 "parser.y"
+#line 1299 "parser.y"
                                       {
         reportError(SYNTAX_ERROR, "Expected Datatype After ',' In Parameter List", (yylsp[-1]).first_line);
         yyerrok;
         (yyval.parameterList) = (yyvsp[-2].parameterList);
     }
-#line 3291 "parser.tab.c"
+#line 3289 "parser.tab.c"
     break;
 
   case 129: /* PARAM_LIST_NONEMPTY: PARAM_LIST_NONEMPTY COMMA DATATYPE error  */
-#line 1306 "parser.y"
+#line 1304 "parser.y"
                                                {
         reportError(SYNTAX_ERROR, "Expected Identifier After Parameter Datatype", (yylsp[-1]).first_line);
         yyerrok;
         (yyval.parameterList) = (yyvsp[-3].parameterList);
     }
-#line 3301 "parser.tab.c"
+#line 3299 "parser.tab.c"
     break;
 
   case 130: /* ARGUMENT_LIST: %empty  */
-#line 1314 "parser.y"
+#line 1312 "parser.y"
                 { (yyval.argList) = NULL; }
-#line 3307 "parser.tab.c"
+#line 3305 "parser.tab.c"
     break;
 
   case 131: /* ARGUMENT_LIST: ARGUMENTS  */
-#line 1315 "parser.y"
+#line 1313 "parser.y"
                 { (yyval.argList) = (yyvsp[0].argList); }
-#line 3313 "parser.tab.c"
+#line 3311 "parser.tab.c"
     break;
 
   case 132: /* ARGUMENTS: LOGICAL_EXPRESSION  */
-#line 1319 "parser.y"
+#line 1317 "parser.y"
                        { (yyval.argList) = makeArgNode((yyvsp[0].expr)); }
-#line 3319 "parser.tab.c"
+#line 3317 "parser.tab.c"
     break;
 
   case 133: /* ARGUMENTS: ARGUMENTS COMMA LOGICAL_EXPRESSION  */
-#line 1320 "parser.y"
+#line 1318 "parser.y"
                                          { (yyval.argList) = appendArgNode((yyvsp[-2].argList), makeArgNode((yyvsp[0].expr))); }
-#line 3325 "parser.tab.c"
+#line 3323 "parser.tab.c"
     break;
 
   case 134: /* ARGUMENTS: ARGUMENTS COMMA error  */
-#line 1323 "parser.y"
+#line 1321 "parser.y"
                             {
         reportError(SYNTAX_ERROR, "Expected Expression After ',' In Arguments", (yylsp[-1]).first_line); // DONE
         yyerrok;
         (yyval.argList) = (yyvsp[-2].argList);
     }
-#line 3335 "parser.tab.c"
+#line 3333 "parser.tab.c"
     break;
 
   case 135: /* ARGUMENTS: COMMA error  */
-#line 1328 "parser.y"
+#line 1326 "parser.y"
                   {
         reportError(SYNTAX_ERROR, "Unexpected ',' Before First Argument", (yylsp[-1]).first_line); // DONE
         yyerrok;
         (yyval.argList) = NULL;
     }
-#line 3345 "parser.tab.c"
+#line 3343 "parser.tab.c"
     break;
 
   case 136: /* LOGICAL_EXPRESSION: LOGICAL_EXPRESSION OR LOGICAL_TERM  */
-#line 1336 "parser.y"
+#line 1334 "parser.y"
                                        {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3356,35 +3354,35 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3360 "parser.tab.c"
+#line 3358 "parser.tab.c"
     break;
 
   case 137: /* LOGICAL_EXPRESSION: LOGICAL_TERM  */
-#line 1346 "parser.y"
+#line 1344 "parser.y"
                    { (yyval.expr) = (yyvsp[0].expr); }
-#line 3366 "parser.tab.c"
+#line 3364 "parser.tab.c"
     break;
 
   case 138: /* LOGICAL_EXPRESSION: LOGICAL_EXPRESSION OR error  */
-#line 1349 "parser.y"
+#line 1347 "parser.y"
                                   {
         reportError(SYNTAX_ERROR, "Expected Expression After '||'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3375 "parser.tab.c"
+#line 3373 "parser.tab.c"
     break;
 
   case 139: /* LOGICAL_EXPRESSION: OR error  */
-#line 1353 "parser.y"
+#line 1351 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Unexpected '||' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3384 "parser.tab.c"
+#line 3382 "parser.tab.c"
     break;
 
   case 140: /* LOGICAL_TERM: LOGICAL_TERM AND EQUALITY_EXPRESSION  */
-#line 1360 "parser.y"
+#line 1358 "parser.y"
                                          {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3395,35 +3393,35 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3399 "parser.tab.c"
+#line 3397 "parser.tab.c"
     break;
 
   case 141: /* LOGICAL_TERM: EQUALITY_EXPRESSION  */
-#line 1370 "parser.y"
+#line 1368 "parser.y"
                           { (yyval.expr) = (yyvsp[0].expr); }
-#line 3405 "parser.tab.c"
+#line 3403 "parser.tab.c"
     break;
 
   case 142: /* LOGICAL_TERM: LOGICAL_TERM AND error  */
-#line 1373 "parser.y"
+#line 1371 "parser.y"
                              {
         reportError(SYNTAX_ERROR, "Expected Expression After '&&'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3414 "parser.tab.c"
+#line 3412 "parser.tab.c"
     break;
 
   case 143: /* LOGICAL_TERM: AND error  */
-#line 1377 "parser.y"
+#line 1375 "parser.y"
                 {
         reportError(SYNTAX_ERROR, "Unexpected '&&' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3423 "parser.tab.c"
+#line 3421 "parser.tab.c"
     break;
 
   case 144: /* EQUALITY_EXPRESSION: EQUALITY_EXPRESSION EQ RELATIONAL_EXPRESSION  */
-#line 1384 "parser.y"
+#line 1382 "parser.y"
                                                  {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3434,11 +3432,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3438 "parser.tab.c"
+#line 3436 "parser.tab.c"
     break;
 
   case 145: /* EQUALITY_EXPRESSION: EQUALITY_EXPRESSION NEQ RELATIONAL_EXPRESSION  */
-#line 1394 "parser.y"
+#line 1392 "parser.y"
                                                     {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3449,53 +3447,53 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3453 "parser.tab.c"
+#line 3451 "parser.tab.c"
     break;
 
   case 146: /* EQUALITY_EXPRESSION: RELATIONAL_EXPRESSION  */
-#line 1404 "parser.y"
+#line 1402 "parser.y"
                             { (yyval.expr) = (yyvsp[0].expr); }
-#line 3459 "parser.tab.c"
+#line 3457 "parser.tab.c"
     break;
 
   case 147: /* EQUALITY_EXPRESSION: EQUALITY_EXPRESSION EQ error  */
-#line 1407 "parser.y"
+#line 1405 "parser.y"
                                    {
         reportError(SYNTAX_ERROR, "Expected Expression After '=='", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3468 "parser.tab.c"
+#line 3466 "parser.tab.c"
     break;
 
   case 148: /* EQUALITY_EXPRESSION: EQUALITY_EXPRESSION NEQ error  */
-#line 1411 "parser.y"
+#line 1409 "parser.y"
                                     {
         reportError(SYNTAX_ERROR, "Expected Expression After '!='", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3477 "parser.tab.c"
+#line 3475 "parser.tab.c"
     break;
 
   case 149: /* EQUALITY_EXPRESSION: EQ error  */
-#line 1415 "parser.y"
+#line 1413 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Unexpected '==' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3486 "parser.tab.c"
+#line 3484 "parser.tab.c"
     break;
 
   case 150: /* EQUALITY_EXPRESSION: NEQ error  */
-#line 1419 "parser.y"
+#line 1417 "parser.y"
                 {
         reportError(SYNTAX_ERROR, "Unexpected '!=' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3495 "parser.tab.c"
+#line 3493 "parser.tab.c"
     break;
 
   case 151: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION ST ADDITIVE_EXPRESSION  */
-#line 1426 "parser.y"
+#line 1424 "parser.y"
                                                  {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3506,11 +3504,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3510 "parser.tab.c"
+#line 3508 "parser.tab.c"
     break;
 
   case 152: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION GT ADDITIVE_EXPRESSION  */
-#line 1436 "parser.y"
+#line 1434 "parser.y"
                                                    {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3521,11 +3519,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3525 "parser.tab.c"
+#line 3523 "parser.tab.c"
     break;
 
   case 153: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION SE ADDITIVE_EXPRESSION  */
-#line 1446 "parser.y"
+#line 1444 "parser.y"
                                                    {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3536,11 +3534,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3540 "parser.tab.c"
+#line 3538 "parser.tab.c"
     break;
 
   case 154: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION GE ADDITIVE_EXPRESSION  */
-#line 1456 "parser.y"
+#line 1454 "parser.y"
                                                    {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3551,89 +3549,89 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3555 "parser.tab.c"
+#line 3553 "parser.tab.c"
     break;
 
   case 155: /* RELATIONAL_EXPRESSION: ADDITIVE_EXPRESSION  */
-#line 1466 "parser.y"
+#line 1464 "parser.y"
                           { (yyval.expr) = (yyvsp[0].expr); }
-#line 3561 "parser.tab.c"
+#line 3559 "parser.tab.c"
     break;
 
   case 156: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION ST error  */
-#line 1469 "parser.y"
+#line 1467 "parser.y"
                                      {
         reportError(SYNTAX_ERROR, "Expected Expression After '<'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3570 "parser.tab.c"
+#line 3568 "parser.tab.c"
     break;
 
   case 157: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION GT error  */
-#line 1473 "parser.y"
+#line 1471 "parser.y"
                                      {
         reportError(SYNTAX_ERROR, "Expected Expression After '>'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3579 "parser.tab.c"
+#line 3577 "parser.tab.c"
     break;
 
   case 158: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION SE error  */
-#line 1477 "parser.y"
+#line 1475 "parser.y"
                                      {
         reportError(SYNTAX_ERROR, "Expected Expression After '<='", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3588 "parser.tab.c"
+#line 3586 "parser.tab.c"
     break;
 
   case 159: /* RELATIONAL_EXPRESSION: RELATIONAL_EXPRESSION GE error  */
-#line 1481 "parser.y"
+#line 1479 "parser.y"
                                      {
         reportError(SYNTAX_ERROR, "Expected Expression After '>='", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3597 "parser.tab.c"
+#line 3595 "parser.tab.c"
     break;
 
   case 160: /* RELATIONAL_EXPRESSION: ST error  */
-#line 1485 "parser.y"
+#line 1483 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Unexpected '<' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3606 "parser.tab.c"
+#line 3604 "parser.tab.c"
     break;
 
   case 161: /* RELATIONAL_EXPRESSION: GT error  */
-#line 1489 "parser.y"
+#line 1487 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Unexpected '>' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3615 "parser.tab.c"
+#line 3613 "parser.tab.c"
     break;
 
   case 162: /* RELATIONAL_EXPRESSION: SE error  */
-#line 1493 "parser.y"
+#line 1491 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Unexpected '<=' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3624 "parser.tab.c"
+#line 3622 "parser.tab.c"
     break;
 
   case 163: /* RELATIONAL_EXPRESSION: GE error  */
-#line 1497 "parser.y"
+#line 1495 "parser.y"
                {
         reportError(SYNTAX_ERROR, "Unexpected '>=' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3633 "parser.tab.c"
+#line 3631 "parser.tab.c"
     break;
 
   case 164: /* ADDITIVE_EXPRESSION: ADDITIVE_EXPRESSION PLUS MULTIPLICATIVE_EXPRESSION  */
-#line 1504 "parser.y"
+#line 1502 "parser.y"
                                                        {
         type rt = arithmeticResultType((yyvsp[-2].expr)->expressionType, (yyvsp[0].expr)->expressionType);
         char* a1 = exprToOperand((yyvsp[-2].expr));
@@ -3645,11 +3643,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(rt, t);
         free(t);
     }
-#line 3649 "parser.tab.c"
+#line 3647 "parser.tab.c"
     break;
 
   case 165: /* ADDITIVE_EXPRESSION: ADDITIVE_EXPRESSION MINUS MULTIPLICATIVE_EXPRESSION  */
-#line 1515 "parser.y"
+#line 1513 "parser.y"
                                                           {
         type rt = arithmeticResultType((yyvsp[-2].expr)->expressionType, (yyvsp[0].expr)->expressionType);
         char* a1 = exprToOperand((yyvsp[-2].expr));
@@ -3661,44 +3659,44 @@ yyreduce:
         (yyval.expr) = makeTempExpr(rt, t);
         free(t);
     }
-#line 3665 "parser.tab.c"
+#line 3663 "parser.tab.c"
     break;
 
   case 166: /* ADDITIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION  */
-#line 1526 "parser.y"
+#line 1524 "parser.y"
                                 { (yyval.expr) = (yyvsp[0].expr); }
-#line 3671 "parser.tab.c"
+#line 3669 "parser.tab.c"
     break;
 
   case 167: /* ADDITIVE_EXPRESSION: ADDITIVE_EXPRESSION PLUS error  */
-#line 1529 "parser.y"
+#line 1527 "parser.y"
                                      {
         reportError(SYNTAX_ERROR, "Expected Expression After '+'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3680 "parser.tab.c"
+#line 3678 "parser.tab.c"
     break;
 
   case 168: /* ADDITIVE_EXPRESSION: ADDITIVE_EXPRESSION MINUS error  */
-#line 1533 "parser.y"
+#line 1531 "parser.y"
                                       {
         reportError(SYNTAX_ERROR, "Expected Expression After '-'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3689 "parser.tab.c"
+#line 3687 "parser.tab.c"
     break;
 
   case 169: /* ADDITIVE_EXPRESSION: PLUS error  */
-#line 1537 "parser.y"
+#line 1535 "parser.y"
                  {
         reportError(SYNTAX_ERROR, "Unexpected '+' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3698 "parser.tab.c"
+#line 3696 "parser.tab.c"
     break;
 
   case 170: /* MULTIPLICATIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION MULTIPLY EXPONENT_EXPRESSION  */
-#line 1544 "parser.y"
+#line 1542 "parser.y"
                                                            {
         type rt = arithmeticResultType((yyvsp[-2].expr)->expressionType, (yyvsp[0].expr)->expressionType);
         char* a1 = exprToOperand((yyvsp[-2].expr));
@@ -3710,11 +3708,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(rt, t);
         free(t);
     }
-#line 3714 "parser.tab.c"
+#line 3712 "parser.tab.c"
     break;
 
   case 171: /* MULTIPLICATIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION DIVIDE EXPONENT_EXPRESSION  */
-#line 1555 "parser.y"
+#line 1553 "parser.y"
                                                            {
         type rt = FLOAT_TYPE;
         char* a1 = exprToOperand((yyvsp[-2].expr));
@@ -3726,11 +3724,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr(rt, t);
         free(t);
     }
-#line 3730 "parser.tab.c"
+#line 3728 "parser.tab.c"
     break;
 
   case 172: /* MULTIPLICATIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION MODULO EXPONENT_EXPRESSION  */
-#line 1566 "parser.y"
+#line 1564 "parser.y"
                                                            {
         char* a1 = exprToOperand((yyvsp[-2].expr));
         char* a2 = exprToOperand((yyvsp[0].expr));
@@ -3741,71 +3739,71 @@ yyreduce:
         (yyval.expr) = makeTempExpr(INT_TYPE, t);
         free(t);
     }
-#line 3745 "parser.tab.c"
+#line 3743 "parser.tab.c"
     break;
 
   case 173: /* MULTIPLICATIVE_EXPRESSION: EXPONENT_EXPRESSION  */
-#line 1576 "parser.y"
+#line 1574 "parser.y"
                           { (yyval.expr) = (yyvsp[0].expr); }
-#line 3751 "parser.tab.c"
+#line 3749 "parser.tab.c"
     break;
 
   case 174: /* MULTIPLICATIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION MULTIPLY error  */
-#line 1579 "parser.y"
+#line 1577 "parser.y"
                                                {
         reportError(SYNTAX_ERROR, "Expected Expression After '*'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3760 "parser.tab.c"
+#line 3758 "parser.tab.c"
     break;
 
   case 175: /* MULTIPLICATIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION DIVIDE error  */
-#line 1583 "parser.y"
+#line 1581 "parser.y"
                                              {
         reportError(SYNTAX_ERROR, "Expected Expression After '/'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3769 "parser.tab.c"
+#line 3767 "parser.tab.c"
     break;
 
   case 176: /* MULTIPLICATIVE_EXPRESSION: MULTIPLICATIVE_EXPRESSION MODULO error  */
-#line 1587 "parser.y"
+#line 1585 "parser.y"
                                              {
         reportError(SYNTAX_ERROR, "Expected Expression After '%'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3778 "parser.tab.c"
+#line 3776 "parser.tab.c"
     break;
 
   case 177: /* MULTIPLICATIVE_EXPRESSION: MULTIPLY error  */
-#line 1591 "parser.y"
+#line 1589 "parser.y"
                      {
         reportError(SYNTAX_ERROR, "Unexpected '*' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3787 "parser.tab.c"
+#line 3785 "parser.tab.c"
     break;
 
   case 178: /* MULTIPLICATIVE_EXPRESSION: DIVIDE error  */
-#line 1595 "parser.y"
+#line 1593 "parser.y"
                    {
         reportError(SYNTAX_ERROR, "Unexpected '/' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3796 "parser.tab.c"
+#line 3794 "parser.tab.c"
     break;
 
   case 179: /* MULTIPLICATIVE_EXPRESSION: MODULO error  */
-#line 1599 "parser.y"
+#line 1597 "parser.y"
                    {
         reportError(SYNTAX_ERROR, "Unexpected '%' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3805 "parser.tab.c"
+#line 3803 "parser.tab.c"
     break;
 
   case 180: /* EXPONENT_EXPRESSION: EXPONENT_EXPRESSION POWER UNARY_EXPRESSION  */
-#line 1606 "parser.y"
+#line 1604 "parser.y"
                                                {
         type resultType = (((yyvsp[-2].expr) && (yyvsp[-2].expr)->expressionType == FLOAT_TYPE) || ((yyvsp[0].expr) && (yyvsp[0].expr)->expressionType == FLOAT_TYPE)) ? FLOAT_TYPE : INT_TYPE;
         char* a1 = exprToOperand((yyvsp[-2].expr));
@@ -3819,35 +3817,35 @@ yyreduce:
         free(a2);
         free(t);
     }
-#line 3823 "parser.tab.c"
+#line 3821 "parser.tab.c"
     break;
 
   case 181: /* EXPONENT_EXPRESSION: UNARY_EXPRESSION  */
-#line 1619 "parser.y"
+#line 1617 "parser.y"
                        { (yyval.expr) = (yyvsp[0].expr); }
-#line 3829 "parser.tab.c"
+#line 3827 "parser.tab.c"
     break;
 
   case 182: /* EXPONENT_EXPRESSION: EXPONENT_EXPRESSION POWER error  */
-#line 1622 "parser.y"
+#line 1620 "parser.y"
                                       {
         reportError(SYNTAX_ERROR, "Expected Expression After '**'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3838 "parser.tab.c"
+#line 3836 "parser.tab.c"
     break;
 
   case 183: /* EXPONENT_EXPRESSION: POWER error  */
-#line 1626 "parser.y"
+#line 1624 "parser.y"
                   {
         reportError(SYNTAX_ERROR, "Unexpected '**' At Start Of Expression", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3847 "parser.tab.c"
+#line 3845 "parser.tab.c"
     break;
 
   case 184: /* UNARY_EXPRESSION: MINUS UNARY_EXPRESSION  */
-#line 1633 "parser.y"
+#line 1631 "parser.y"
                                         {
         char* a1 = exprToOperand((yyvsp[0].expr));
         char* t  = createTemp();
@@ -3856,11 +3854,11 @@ yyreduce:
         (yyval.expr) = makeTempExpr((yyvsp[0].expr)->expressionType, t);
         free(t);
     }
-#line 3860 "parser.tab.c"
+#line 3858 "parser.tab.c"
     break;
 
   case 185: /* UNARY_EXPRESSION: NOT UNARY_EXPRESSION  */
-#line 1641 "parser.y"
+#line 1639 "parser.y"
                            {
         char* a1 = exprToOperand((yyvsp[0].expr));
         char* t  = createTemp();
@@ -3869,98 +3867,98 @@ yyreduce:
         (yyval.expr) = makeTempExpr(BOOL_TYPE, t);
         free(t);
     }
-#line 3873 "parser.tab.c"
+#line 3871 "parser.tab.c"
     break;
 
   case 186: /* UNARY_EXPRESSION: PRIMARY_EXPRESSION  */
-#line 1649 "parser.y"
+#line 1647 "parser.y"
                          { (yyval.expr) = (yyvsp[0].expr); }
-#line 3879 "parser.tab.c"
+#line 3877 "parser.tab.c"
     break;
 
   case 187: /* UNARY_EXPRESSION: NOT error  */
-#line 1652 "parser.y"
+#line 1650 "parser.y"
                 {
         reportError(SYNTAX_ERROR, "Expected Expression After '!'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3888 "parser.tab.c"
+#line 3886 "parser.tab.c"
     break;
 
   case 188: /* UNARY_EXPRESSION: MINUS error  */
-#line 1656 "parser.y"
+#line 1654 "parser.y"
                                {
         reportError(SYNTAX_ERROR, "Expected Expression After Unary '-'", (yylsp[-1]).first_line); // DONE
         yyerrok;
     }
-#line 3897 "parser.tab.c"
+#line 3895 "parser.tab.c"
     break;
 
   case 189: /* PRIMARY_EXPRESSION: INTVALUE  */
-#line 1663 "parser.y"
+#line 1661 "parser.y"
              {
         value v;
         memset(&v, 0, sizeof(v));
         v.INT_Data = (yyvsp[0].intData);
         (yyval.expr) = makeExpr(INT_TYPE, v, NULL);
     }
-#line 3908 "parser.tab.c"
+#line 3906 "parser.tab.c"
     break;
 
   case 190: /* PRIMARY_EXPRESSION: FLOATVALUE  */
-#line 1669 "parser.y"
+#line 1667 "parser.y"
                  {
         value v;
         memset(&v, 0, sizeof(v));
         v.FLOAT_Data = (yyvsp[0].floatData);
         (yyval.expr) = makeExpr(FLOAT_TYPE, v, NULL);
     }
-#line 3919 "parser.tab.c"
+#line 3917 "parser.tab.c"
     break;
 
   case 191: /* PRIMARY_EXPRESSION: CHARVALUE  */
-#line 1675 "parser.y"
+#line 1673 "parser.y"
                 {
         value v;
         memset(&v, 0, sizeof(v));
         v.CHAR_Data = (yyvsp[0].charData);
         (yyval.expr) = makeExpr(CHAR_TYPE, v, NULL);
     }
-#line 3930 "parser.tab.c"
+#line 3928 "parser.tab.c"
     break;
 
   case 192: /* PRIMARY_EXPRESSION: BOOLVALUE  */
-#line 1681 "parser.y"
+#line 1679 "parser.y"
                 {
         value v;
         memset(&v, 0, sizeof(v));
         v.BOOL_Data = (yyvsp[0].intData);
         (yyval.expr) = makeExpr(BOOL_TYPE, v, NULL);
     }
-#line 3941 "parser.tab.c"
+#line 3939 "parser.tab.c"
     break;
 
   case 193: /* PRIMARY_EXPRESSION: STRINGVALUE  */
-#line 1687 "parser.y"
+#line 1685 "parser.y"
                   {
         value v;
         memset(&v, 0, sizeof(v));
         v.STRING_Data = strdup((yyvsp[0].stringData));
         (yyval.expr) = makeExpr(STRING_TYPE, v, NULL);
     }
-#line 3952 "parser.tab.c"
+#line 3950 "parser.tab.c"
     break;
 
   case 194: /* PRIMARY_EXPRESSION: LEFT_ROUND_BRACKET LOGICAL_EXPRESSION RIGHT_ROUND_BRACKET  */
-#line 1693 "parser.y"
+#line 1691 "parser.y"
                                                                 {
         (yyval.expr) = (yyvsp[-1].expr);
     }
-#line 3960 "parser.tab.c"
+#line 3958 "parser.tab.c"
     break;
 
   case 195: /* PRIMARY_EXPRESSION: IDENTIFIER PRIMARY_SUFFIX  */
-#line 1696 "parser.y"
+#line 1694 "parser.y"
                                 {
         if ((yyvsp[0].argList) != NULL) {
             singleEntryNode* fn = functionLookup(&gScopeStack, (yyvsp[-1].stringData));
@@ -4007,43 +4005,43 @@ yyreduce:
             }
         }
     }
-#line 4011 "parser.tab.c"
+#line 4009 "parser.tab.c"
     break;
 
   case 196: /* PRIMARY_EXPRESSION: LEFT_ROUND_BRACKET error RIGHT_ROUND_BRACKET  */
-#line 1744 "parser.y"
+#line 1742 "parser.y"
                                                    {
         reportError(SYNTAX_ERROR, "Expected Expression Inside '( )'", (yylsp[-1]).first_line); // DONE
         yyerrok;
         (yyval.expr) = NULL;
     }
-#line 4021 "parser.tab.c"
+#line 4019 "parser.tab.c"
     break;
 
   case 197: /* PRIMARY_EXPRESSION: LEFT_ROUND_BRACKET LOGICAL_EXPRESSION error  */
-#line 1749 "parser.y"
+#line 1747 "parser.y"
                                                   {
         reportError(SYNTAX_ERROR, "Expected ')'", (yylsp[-1]).first_line); // DONE
         yyerrok;
         (yyval.expr) = (yyvsp[-1].expr);
     }
-#line 4031 "parser.tab.c"
+#line 4029 "parser.tab.c"
     break;
 
   case 198: /* PRIMARY_SUFFIX: %empty  */
-#line 1757 "parser.y"
+#line 1755 "parser.y"
               { (yyval.argList) = NULL; }
-#line 4037 "parser.tab.c"
+#line 4035 "parser.tab.c"
     break;
 
   case 199: /* PRIMARY_SUFFIX: LEFT_ROUND_BRACKET ARGUMENT_LIST RIGHT_ROUND_BRACKET  */
-#line 1758 "parser.y"
+#line 1756 "parser.y"
                                                            { (yyval.argList) = (yyvsp[-1].argList); }
-#line 4043 "parser.tab.c"
+#line 4041 "parser.tab.c"
     break;
 
 
-#line 4047 "parser.tab.c"
+#line 4045 "parser.tab.c"
 
       default: break;
     }
@@ -4241,7 +4239,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1761 "parser.y"
+#line 1759 "parser.y"
 
 
 void yyerror(const char* String) { (void)String; }

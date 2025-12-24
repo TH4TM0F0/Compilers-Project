@@ -3,8 +3,19 @@
 
 ----------------------------------------
 SCOPE DUMP (Exiting Scope)
+Depth: 2
+----------------------------------------
+Name = P¾ | Kind = VARIABLE | Type = unknown | Init = 0 | Const = 0 | Used = 0
+
+----------------------------------------
+SCOPE DUMP (Exiting Scope)
 Depth: 1
 ----------------------------------------
-Name = x | Kind = VARIABLE | Type = int | Init = 0 | Const = 0 | Used = 1
-Name = y | Kind = VARIABLE | Type = int | Init = 0 | Const = 0 | Used = 1
+(empty)
+
+----------------------------------------
+SCOPE DUMP (Exiting Scope)
+Depth: 0
+----------------------------------------
+(empty)
 

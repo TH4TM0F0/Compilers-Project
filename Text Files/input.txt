@@ -1,7 +1,9 @@
-function int add(int x , int y)
+if (true)
 {
-return x + y;
+function int add (int first, int second){
+
+	return (first + second);
 }
 
+}
 
-add('a' , 'f');

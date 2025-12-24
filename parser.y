@@ -527,7 +527,7 @@ DECLARATION:
             char* rhs = exprToOperand(cur->initExpr);
             addQuadruple(OP_ASSN, rhs, NULL, cur->name);
             free(rhs);
-            updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
+            //updateVariableValueScoped(&gScopeStack, cur->name, declType, initVal);
             cur = cur->next;
         }
         freeDeclList($3);
@@ -724,24 +724,19 @@ FUNCTION_CALL:
             ArgNode* a = $3;
             Parameter* p = fn->parameterList;
             int argIndex = 1;
-            char buffer[256] = "\0";
-            while (a && p) 
+
+            while (a && p)
             {
-                if (p->Type != a->expr->expressionType) 
+                if (p->Type != a->expr->expressionType)
                 {
-                    strcat("Type Mismatch In Function Call, ", buffer);
-                    strcat(buffer , "at argument: ");
-                    char buf[32];
-                    snprintf(buf, sizeof(buf), "%d", argIndex);
-                    strcat(buffer , strdup(buf));
-                    strcat(buffer , ".");
-                    strcat(buffer , " Expected ");
-                    strcat(buffer , typeToString(p->Type));
-                    strcat(buffer , " but got ");
-                    strcat(buffer , typeToString(a->expr->expressionType));
+                    char buffer[256];
+                    snprintf(buffer, sizeof(buffer),
+                            "Type Mismatch In Function Call at argument %d. Expected %s but got %s",
+                            argIndex, typeToString(p->Type), typeToString(a->expr->expressionType));
                     reportError(SEMANTIC_ERROR, buffer, @1.first_line);
                 }
 
+                // emit param anyway (optional but common)
                 char* op = exprToOperand(a->expr);
                 addQuadruple(OP_PARM, op, NULL, NULL);
                 free(op);
@@ -751,12 +746,13 @@ FUNCTION_CALL:
                 argIndex++;
             }
 
-            // If args remain but params finished => too many args
-            if (a && !p) {
+            // too many args
+            if (a && !p)
+            {
                 reportError(SEMANTIC_ERROR, "Too Many Arguments In Function Call", @1.first_line);
 
-                // still emit OP_PARM for remaining args to keep IR consistent (optional but recommended)
-                while (a) {
+                while (a)
+                {
                     char* op = exprToOperand(a->expr);
                     addQuadruple(OP_PARM, op, NULL, NULL);
                     free(op);
@@ -764,10 +760,12 @@ FUNCTION_CALL:
                 }
             }
 
-            // If params remain but args finished => too few args
-            if (!a && p) {
+            // too few args
+            if (!a && p)
+            {
                 reportError(SEMANTIC_ERROR, "Too Few Arguments In Function Call", @1.first_line);
             }
+
 
             // Now call
             if (fn->identifierType != VOID_TYPE) {

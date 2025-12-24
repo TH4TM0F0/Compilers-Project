@@ -1,5 +1,5 @@
 === Generated Quadruples ===
-[0] (+, x, y, t1)
-[1] (RETURN, t1, NONE, NONE)
-[2] (PARM, 3, NONE, NONE)
-[3] (CALL, add, NONE, t2)
+[0] (IF_FALSE, 1, NONE, L1)
+[1] (+, first, second, t1)
+[2] (RETURN, t1, NONE, NONE)
+[3] (LABEL, NONE, NONE, L1)
